@@ -1,8 +1,14 @@
-# Datos que el pipeline XGBoost espera en `/content`
+# Datos que el pipeline XGBoost espera
 
 Estos son exactamente los mismos archivos que esperaba la celda 49 del
 notebook legacy — el pipeline nuevo no cambia ningun requisito de datos,
-solo centraliza donde se buscan (parametro `data_dir`, default `/content`).
+solo centraliza donde se buscan (parametro `data_dir`).
+
+Viven permanentemente en Google Drive, en `MyDrive/Bases de datos Tesis`.
+En `notebooks/run_experiments.ipynb` esa ruta esta centralizada en la
+constante `DATA_DIR = "/content/drive/MyDrive/Bases de datos Tesis"`, que
+se pasa a `run_experiment(config, data_dir=DATA_DIR, ...)`. No hace falta
+subir nada a mano en cada sesion de Colab.
 
 ## 1. Exogenas globales (Temperatura, IGAE, Primarias, Secundarias, Terciarias)
 
@@ -44,7 +50,7 @@ Generacion, Importacion y Exportacion de esa region. Columnas requeridas
   (se detecta automaticamente segun el rango de valores presentes).
 - `valor` (o `Valor`, `VALOR`, ...) — numerico.
 
-## Resumen — lista de archivos a subir a `/content` antes de correr
+## Resumen — archivos esperados en `DATA_DIR`
 
 ```
 IGAE_2.xlsx
