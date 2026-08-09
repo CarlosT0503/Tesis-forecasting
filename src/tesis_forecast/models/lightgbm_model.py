@@ -24,10 +24,62 @@ Por instruccion explicita del usuario, este modulo:
   - En su lugar, ADAPTA el resto del pipeline (ventana train/test fija,
     catalogo completo de 8 exogenas, tratamiento futuro conocido/estimado,
     construccion de features por lags+rolling, guardado, RUN_NAME) para que
-    sea IDENTICO al marco de `xgboost_model.py`, de modo que ambos sean
-    directamente comparables. Todo el codigo de este bloque "marco" esta
-    copiado de `xgboost_model.py` (que a su vez es fiel a la celda 49), no
-    de la celda 46.
+    sea comparable con `xgboost_model.py`. La mayor parte de este bloque
+    "marco" viene de ahi (que a su vez es fiel a la celda 49), no de la
+    celda 46.
+
+REDISENO 2026-08-09 -- VENTANA DE LAGS ADAPTATIVA (rediseño explícitamente
+autorizado, no aplica a XGBoost):
+
+La primera version de este modulo copiaba literal el `WINDOW_DEFAULT=168`
+fijo de XGBoost para las features de lags. Eso tiene un defecto real e
+independiente del smoke test que lo revelo: `create_feature_df` genera una
+columna `lag_168` vía `.shift(168)`, y si la serie de entrenamiento
+disponible en ese punto tiene <=168 filas, esa columna queda enteramente
+NaN y `.dropna()` elimina TODAS las filas -- el ajuste queda entrenando
+sobre un DataFrame vacio. Con `train_hours=336` (default) y
+`forecast_horizon=168` (default), el presupuesto de filas que ve cada
+trial de Optuna durante el tuning es `train_hours - forecast_horizon =
+168` filas -- exactamente igual al `window`, por lo que **todos los
+trials de Optuna retornaban `inf` de forma silenciosa** (el guard
+`if len(df_train) < 50: return float("inf")` lo capturaba sin lanzar
+excepcion) y el tuning nunca comparaba hiperparametros de verdad. El
+ajuste final SI funcionaba (usa el `train_hours` completo, no el reducido
+por validacion), asi que el pipeline igual producia metricas -- pero con
+hiperparametros esencialmente arbitrarios, no tuneados. Con un
+`train_hours` mas chico (como en un smoke test rapido, `train_hours=48`),
+incluso el ajuste final se queda sin filas y el pipeline no produce
+ninguna metrica para esa serie (sin lanzar excepcion tampoco -- solo
+`calcular_metricas` devuelve `None` sobre predicciones NaN, y esa serie
+simplemente no aparece en `metricas.csv`).
+
+Correccion: `_resolver_window(train_hours, forecast_horizon)` deriva el
+`window` del presupuesto real de filas disponibles para el tuning
+(`train_hours - forecast_horizon`), dejando siempre un margen >= 50 filas
+utilizables, con piso de 24h (un dia, para no perder estacionalidad
+diaria) y techo de 168h (una semana, igual que XGBoost, para no perder
+comparabilidad cuando el presupuesto lo permite). Con el default vigente
+(336h train / 168h horizonte) esto da `window=84` en vez de 168 -- MENOS
+lag history que XGBoost, pero con un tuning que **si compara
+hiperparametros de verdad** en vez de retornar `inf` siempre. Con
+presupuestos grandes (ej. `train_hours=1000`), el `window` sube hasta el
+techo de 168h, igualandose a XGBoost. Es una decision nueva y deliberada,
+no una preservacion de la celda 46 (que no tenia este problema porque
+usaba un split de validacion completamente distinto, por porcentaje).
+
+Segunda parte del mismo defecto, misma correccion: `create_feature_df`
+tambien tenia columnas `rolling_mean_168` / `rolling_std_168` con ventana
+de 168h FIJA (copiada de XGBoost), independiente del `window` de lags. Aun
+reduciendo el window de lags, estas dos columnas seguian exigiendo 168
+filas previas y `.dropna()` seguia vaciando el DataFrame en cualquier
+escenario con presupuesto menor a 168. Ahora la ventana "larga" de rolling
+usa el mismo `window` resuelto (no un numero fijo) y la ventana "corta"
+usa `min(24, window)` -- todas las features (lags + ambos rolling) exigen
+exactamente `window` filas de historia, ni una mas, asi que el numero de
+filas utilizables tras el dropna() es siempre `len(y) - window`, verificado
+empiricamente (ver commit). Los nombres de columnas cambiaron de
+`rolling_mean_24/168` a `rolling_mean_corta/larga` para no sugerir un
+numero de horas fijo que ya no aplica.
 
 Ver docs/MODELOS_MIGRADOS.md para el detalle linea por linea de que viene
 de donde.
@@ -59,7 +111,9 @@ FORECAST_HORIZON_DEFAULT = 24 * 7    # 168 horas -- adaptado, igual a XGBoost
 TRAIN_LAST_HOURS_DEFAULT = 24 * 14   # 336 horas = 2 semanas -- adaptado, igual a XGBoost
 N_TRIALS_OPTUNA_DEFAULT = 10         # igual a la celda 46 (N_TRIALS_OPTUNA)
 
-WINDOW_DEFAULT = 168                 # igual a la celda 46 (WINDOW_DEFAULT), fijo (no configurable)
+WINDOW_DEFAULT = 168                 # techo del window (una semana) -- ver _resolver_window()
+WINDOW_MINIMO = 24                   # piso del window (un dia)
+FILAS_MINIMAS_TUNING = 50            # mismo umbral que el guard de objective_lightgbm
 
 COL_FECHA = "fecha"
 COL_HORA = "Hora"
@@ -329,10 +383,25 @@ def extraer_serie_horaria(df, columna, nombre_serie):
 # =========================================================
 # FEATURES HORARIAS
 #
-# Adaptado: usa lags + rolling + trend (igual que XGBoost), SIN las
-# features de calendario (hour/dayofweek/month seno-coseno) que la celda
-# 46 si agregaba en create_feature_df_multivar. Se prioriza consistencia
-# con el marco vigente sobre replicar ese detalle del prototipo.
+# Adaptado: usa lags + rolling + trend (igual que XGBoost en espiritu), SIN
+# las features de calendario (hour/dayofweek/month seno-coseno) que la
+# celda 46 si agregaba en create_feature_df_multivar. Se prioriza
+# consistencia con el marco vigente sobre replicar ese detalle del
+# prototipo.
+#
+# REDISENO 2026-08-09: en la version anterior, "rolling_mean_168" /
+# "rolling_std_168" usaban una ventana de 168h FIJA, independiente del
+# `window` de lags -- eso significaba que aunque `_resolver_window()`
+# redujera el window de lags, estas dos columnas seguian exigiendo 168
+# filas previas para no ser NaN, y `.dropna()` seguia vaciando el
+# DataFrame en cualquier escenario con presupuesto de filas menor a 168.
+# Ahora la ventana "larga" de rolling usa el mismo `window` resuelto (no
+# un numero fijo), y la ventana "corta" usa `min(24, window)` (24h = un
+# dia; como WINDOW_MINIMO ya es 24, en la practica esto siempre da 24).
+# Con esto, TODAS las features (lags + ambos rolling) requieren exactamente
+# `window` filas de historia, ni una mas -- el numero de filas utilizables
+# tras el dropna() es exactamente `len(y) - window`, coincidiendo con la
+# aritmetica que `_resolver_window()` asume.
 # =========================================================
 
 def create_feature_df(y, window, exog_cols, exog=None):
@@ -352,11 +421,14 @@ def create_feature_df(y, window, exog_cols, exog=None):
     for lag in range(1, window + 1):
         df[f"lag_{lag}"] = df["y"].shift(lag)
 
+    rolling_corta = min(24, window)
+    rolling_larga = window
+
     y_past = df["y"].shift(1)
-    df["rolling_mean_24"] = y_past.rolling(24).mean()
-    df["rolling_std_24"] = y_past.rolling(24).std()
-    df["rolling_mean_168"] = y_past.rolling(168).mean()
-    df["rolling_std_168"] = y_past.rolling(168).std()
+    df["rolling_mean_corta"] = y_past.rolling(rolling_corta).mean()
+    df["rolling_std_corta"] = y_past.rolling(rolling_corta).std()
+    df["rolling_mean_larga"] = y_past.rolling(rolling_larga).mean()
+    df["rolling_std_larga"] = y_past.rolling(rolling_larga).std()
     df["trend"] = np.arange(len(df))
 
     return df.dropna()
@@ -376,10 +448,13 @@ def create_features_from_history(hist_y, window, exog_cols, exog_row=None):
     for lag in range(1, window + 1):
         features[f"lag_{lag}"] = hist_y[-lag] if len(hist_y) >= lag else hist_y[0]
 
-    features["rolling_mean_24"] = np.mean(hist_y[-24:])
-    features["rolling_std_24"] = np.std(hist_y[-24:])
-    features["rolling_mean_168"] = np.mean(hist_y[-168:])
-    features["rolling_std_168"] = np.std(hist_y[-168:])
+    rolling_corta = min(24, window)
+    rolling_larga = window
+
+    features["rolling_mean_corta"] = np.mean(hist_y[-rolling_corta:])
+    features["rolling_std_corta"] = np.std(hist_y[-rolling_corta:])
+    features["rolling_mean_larga"] = np.mean(hist_y[-rolling_larga:])
+    features["rolling_std_larga"] = np.std(hist_y[-rolling_larga:])
     features["trend"] = len(hist_y)
 
     return pd.DataFrame([features])
@@ -600,6 +675,38 @@ def imprimir_resultados(df_metricas):
 
 
 # =========================================================
+# VENTANA DE LAGS ADAPTATIVA (rediseno, ver docstring del modulo)
+# =========================================================
+
+def _resolver_window(train_hours, forecast_horizon):
+    """
+    Deriva el `window` de lags a partir del presupuesto real de filas que
+    tendra cada trial de Optuna (`train_hours - forecast_horizon`, el
+    tamano de `tune_train_y` en _preparar_serie), en vez de usar un valor
+    fijo de 168h como XGBoost.
+
+    Sin esto, con window=168 fijo, cualquier configuracion donde
+    `train_hours - forecast_horizon <= 168` deja el DataFrame de features
+    de tuning vacio tras el dropna() (la columna lag_168 queda enteramente
+    NaN) y Optuna nunca compara hiperparametros de verdad -- ver docstring
+    del modulo para el detalle completo.
+
+    Garantiza:
+      - Al menos FILAS_MINIMAS_TUNING (50) filas utilizables para el fit
+        de cada trial, siempre que el presupuesto lo permita.
+      - Nunca por debajo de WINDOW_MINIMO (24h, un dia -- preserva algo de
+        estacionalidad diaria).
+      - Nunca por encima de WINDOW_DEFAULT (168h, una semana -- el mismo
+        techo que usa XGBoost, para no perder comparabilidad cuando el
+        presupuesto de filas es generoso).
+    """
+    presupuesto_tuning = max(train_hours - forecast_horizon, 1)
+    candidato = presupuesto_tuning // 2
+
+    return min(WINDOW_DEFAULT, max(WINDOW_MINIMO, candidato))
+
+
+# =========================================================
 # PREPARAR TRAIN / TEST
 # =========================================================
 
@@ -636,10 +743,13 @@ def _preparar_serie(nombre_serie, serie, fechas, exogenas_df, exog_cols, train_h
         exog_cols=exog_cols,
     )
 
+    window_resuelto = _resolver_window(train_hours, forecast_horizon)
+
     print("\n   Split general fijo")
     print(f"      Train: {len(train):,} obs")
     print(f"      Test: {len(test):,} obs")
     print(f"      Horizonte: {forecast_horizon} horas")
+    print(f"      Window de lags (adaptativo): {window_resuelto} horas")
 
     print("\n   Exogenas activas:")
     for col in exog_cols:
@@ -674,7 +784,7 @@ def _preparar_serie(nombre_serie, serie, fechas, exogenas_df, exog_cols, train_h
         "horizonte_usado": f"{forecast_horizon}_horas",
         "tune_train_y": tune_train_y,
         "tune_val_y": tune_val_y,
-        "window_tune": WINDOW_DEFAULT,
+        "window_tune": window_resuelto,
         "train_exog_tune": tune_train_exog,
         "val_exog_tune": tune_val_exog,
     }

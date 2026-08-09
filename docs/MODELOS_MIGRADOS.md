@@ -34,6 +34,12 @@ Los 4 extraídos el 2026-08-08 comparten con XGBoost/LightGBM el mismo patrón m
 
 **Consecuencia práctica:** los resultados de `lightgbm_model.py` **no son directamente comparables** con ninguna corrida legacy de LightGBM (esa corrida nunca existió con este framework). Sí son comparables con las corridas de XGBoost del sistema nuevo, que es el objetivo que se pidió.
 
+## LightGBM — rediseño 2026-08-09 (smoke test FAIL → ventana de lags/rolling adaptativa)
+
+El smoke test de LightGBM falló en Colab (commit `041a3c0`) contra el pipeline descrito arriba. Causa raíz, encontrada leyendo `create_feature_df`: tanto el bloque de lags (`lag_1..lag_window`) como las columnas `rolling_mean_168`/`rolling_std_168` usaban una ventana de **168h fija**, copiada de XGBoost, sin relación con `train_hours`/`forecast_horizon`. Con el propio default vigente (`train_hours=336`, `forecast_horizon=168`), el presupuesto de filas que ve cada trial de Optuna durante el tuning es `train_hours - forecast_horizon = 168` filas — exactamente igual a la ventana — así que `.dropna()` vaciaba el DataFrame en **todos** los trials, cada uno retornaba `inf` silenciosamente (sin excepción) y el tuning nunca comparó hiperparámetros de verdad; solo el ajuste final (que sí usa el `train_hours` completo) producía un modelo real, con hiperparámetros esencialmente arbitrarios. Con un `train_hours` más chico (como en el smoke test, pensado para correr rápido), incluso el ajuste final se quedaba sin filas: la región terminaba sin ninguna métrica, sin lanzar ninguna excepción tampoco — un fallo completamente silencioso.
+
+Corrección (aplicada solo a LightGBM, no a XGBoost): `_resolver_window(train_hours, forecast_horizon)` deriva la ventana del presupuesto real de filas (`(train_hours - forecast_horizon) // 2`), con piso de 24h y techo de 168h; `create_feature_df`/`create_features_from_history` usan esa misma ventana tanto para los lags como para el rolling "largo" (renombrado `rolling_mean_larga`/`rolling_std_larga`, ya no sugiere un número de horas fijo que dejó de aplicar). Verificado empíricamente (no solo por inspección) que con el default vigente esto da `window=84` y dobla el tuning en algo funcional (84 filas ≥ el umbral de 50 filas mínimas para no retornar `inf`); con presupuestos grandes el `window` sube hasta el mismo techo de 168h que usa XGBoost. `tests/smoke_lightgbm.py` se re-dimensionó (`train_hours=200`, `forecast_horizon=48`) para ejercitar el caso adaptativo real en vez del caso que crasheaba.
+
 ## Diferencias científicas reales entre modelos (por qué no se comparte código)
 
 Verificadas leyendo el código fuente exacto de cada celda, no asumidas:
@@ -47,16 +53,22 @@ Verificadas leyendo el código fuente exacto de cada celda, no asumidas:
 
 Ningún cambio de este proyecto intentó unificar nada de lo anterior — se preservó cada comportamiento tal cual estaba en su celda de origen.
 
+## FCNN — corrección quirúrgica 2026-08-09 (smoke test FAIL → construcción de series.csv)
+
+El smoke test de FCNN falló en Colab (commit `041a3c0`) con `ValueError: If using all scalar values, you must pass an index` al construir el DataFrame final de series, aunque ambos modelos (directa y STL-residuos) entrenaban y producían métricas válidas. Causa raíz: `resultados.series` mezcla dos formas de bloque — una fila por cada predicción (valores escalares, vía `_guardar_bloque`) y un bloque "real" por región con `fecha`/`valor` como arreglo completo de la serie (array, no escalar). La agregación final (`for bloque in resultados.series: pd.DataFrame({...})`) construía cada bloque directamente; para los bloques de predicción, con TODOS los valores del dict escalares, `pd.DataFrame({...})` exige un índice explícito y lanza esa excepción. El guardado incremental (`_guardar_avance_csv`) tenía un bug relacionado pero silencioso: `pd.DataFrame(resultados.series)` trataba cada bloque como una sola fila, así que el bloque "real" (con arreglo) habría quedado mal serializado (una fila con una celda conteniendo un arreglo) en vez de expandirse a una fila por hora — nunca se manifestó como excepción porque el guardado final (correcto en la agregación final antes del fix) sobrescribía ese archivo intermedio al terminar.
+
+Corrección quirúrgica: nueva función `_construir_df_series()` que envuelve `fecha`/`valor` con `np.atleast_1d(...)` antes de construir cada bloque — normaliza escalares a arreglos de 1 elemento sin tocar ningún valor ni el orden de las filas, y pandas hace el broadcast correctamente en ambos casos (fila única o serie completa). Se usa en los dos lugares que antes tenían el problema (`_guardar_avance_csv` y la agregación final de `run()`), eliminando también el bug silencioso del guardado incremental. Ningún cambio en arquitectura, tuning, exógenas, train/test ni métricas.
+
 ## Smoke tests
 
 Uno por modelo en `tests/`, mismo patrón: construyen datos sintéticos mínimos (1 región, ventanas chicas, 1 trial de Optuna donde aplica) y corren el pipeline `run()` completo de punta a punta, verificando shapes, ausencia de NaN inesperado, y que se generen los archivos esperados.
 
 | Smoke test | Ejecutado en este entorno | Resultado |
 |---|---|---|
-| `tests/smoke_sarimax.py` | **Sí** (solo depende de statsmodels/sklearn, disponibles localmente) | OK — corrida real, MAPE=1.59% sobre datos sintéticos |
-| `tests/smoke_lightgbm.py` | No (falta `lightgbm`/`optuna` en este entorno) | Pendiente de correr en Colab |
-| `tests/smoke_lstm_direct.py` | No (falta `tensorflow`/`optuna`) | Pendiente de correr en Colab |
-| `tests/smoke_fcnn.py` | No (falta `tensorflow`/`optuna`) | Pendiente de correr en Colab |
-| `tests/smoke_ensemble_stl.py` | No (falta `tensorflow`/`optuna`) | Pendiente de correr en Colab |
+| `tests/smoke_sarimax.py` | **Sí** (solo depende de statsmodels/sklearn, disponibles localmente) | OK — corrida real, MAPE=1.59% sobre datos sintéticos, re-verificado 2026-08-09 sin cambios |
+| `tests/smoke_lightgbm.py` | No (falta `lightgbm`/`optuna` en este entorno). Re-dimensionado (`train_hours=200`, `forecast_horizon=48`) y la lógica de `_resolver_window`/`create_feature_df` verificada por separado con pandas/numpy puro (sin lightgbm/optuna), reproduciendo el conteo de filas exacto que vería el pipeline real. | FAIL en Colab (commit `041a3c0`) → corregido, pendiente de re-correr en Colab |
+| `tests/smoke_lstm_direct.py` | No (falta `tensorflow`/`optuna`) | PASS en Colab (commit `041a3c0`), sin cambios en este módulo |
+| `tests/smoke_fcnn.py` | No (falta `tensorflow`/`optuna`). El bug de `_construir_df_series` fue reproducido y verificado corregido con pandas/numpy puro, aislado del resto del pipeline. | FAIL en Colab (commit `041a3c0`) → corregido, pendiente de re-correr en Colab |
+| `tests/smoke_ensemble_stl.py` | No (falta `tensorflow`/`optuna`) | PASS en Colab (commit `041a3c0`), sin cambios en este módulo |
 
 Todos compilan (`py_compile`) y su lógica de generación de datos sintéticos fue verificada por separado donde no dependía de las librerías faltantes.

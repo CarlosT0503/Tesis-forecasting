@@ -29,11 +29,19 @@ from tesis_forecast.models import lightgbm_model as m
 
 REGION = "BCA"
 
+# TRAIN_HOURS/FORECAST_HORIZON elegidos para que _resolver_window() calcule
+# un window ADAPTATIVO menor al techo de 168h (336-168 -> window=84 en el
+# default vigente; aqui 200-48 -> window=76), en vez de caer justo en el
+# caso trivial donde el resultado coincidiria con el techo sin probar nada.
+# La version anterior de este test (train_hours=48) exponia el bug real:
+# con window=168 fijo, cualquier train_hours <= ~170h dejaba el DataFrame
+# de features vacio tras el dropna() -- ver docstring de lightgbm_model.py.
+TRAIN_HOURS = 200
+FORECAST_HORIZON = 48
+
 # Suficientemente largo para cubrir train + forecast + el lag de 336h
 # (2 semanas) que construir_future_exog necesita para estimar Gen/Imp/Exp.
-N_HORAS = 48 + 24 + 336 + 24  # margen extra
-TRAIN_HOURS = 48
-FORECAST_HORIZON = 24
+N_HORAS = TRAIN_HOURS + FORECAST_HORIZON + 336 + 24  # margen extra
 
 
 def _serie_horaria_sintetica(n_horas, seed):
@@ -108,6 +116,13 @@ def main():
         # ---------------------------------------------------------
         # VALIDACIONES
         # ---------------------------------------------------------
+
+        window_resuelto = m._resolver_window(TRAIN_HOURS, FORECAST_HORIZON)
+        print(f"Window adaptativo resuelto: {window_resuelto}h (techo={m.WINDOW_DEFAULT}h)")
+        assert window_resuelto < m.WINDOW_DEFAULT, (
+            "Este test deberia ejercitar el caso adaptativo (window < techo); "
+            "ajusta TRAIN_HOURS/FORECAST_HORIZON si esto ya no se cumple."
+        )
 
         assert len(metricas_df) == 1, f"Se esperaba 1 fila de metricas, hubo {len(metricas_df)}"
         assert metricas_df["region"].iloc[0] == REGION

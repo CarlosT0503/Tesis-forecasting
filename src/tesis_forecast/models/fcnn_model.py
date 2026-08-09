@@ -603,6 +603,34 @@ def _region_de_serie(nombre_serie):
     return nombre_serie.split("_")[0]
 
 
+def _construir_df_series(bloques):
+    """
+    Construye el DataFrame de series a partir de `resultados.series`.
+
+    `resultados.series` mezcla dos formas de bloque: filas individuales por
+    prediccion (valores escalares, uno por hora -- ver `_guardar_bloque`) y
+    un bloque "real" por region con `fecha`/`valor` como arreglo completo de
+    la serie. `pd.DataFrame({...})` construido directamente sobre un bloque
+    de puros escalares falla con "If using all scalar values, you must pass
+    an index"; `np.atleast_1d` normaliza ambos casos a arreglo antes de
+    construir cada bloque, sin cambiar ni un valor ni el orden de las filas
+    resultantes.
+    """
+    frames = []
+    for bloque in bloques:
+        fechas_arr = np.atleast_1d(bloque["fecha"])
+        valores_arr = np.atleast_1d(bloque["valor"])
+        frames.append(pd.DataFrame({
+            "serie": bloque["serie"],
+            "fecha": pd.to_datetime(fechas_arr, errors="coerce"),
+            "tipo": bloque["tipo"],
+            "subset": bloque["subset"],
+            "modelo": bloque["modelo"],
+            "valor": valores_arr,
+        }))
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+
 def _guardar_bloque(resultados, nombre_serie, modelo, pred, fechas_test, metricas, best_val_smape, params,
                      exog_names, train_hours, forecast_horizon):
     for j, val in enumerate(pred):
@@ -633,8 +661,7 @@ def _guardar_bloque(resultados, nombre_serie, modelo, pred, fechas_test, metrica
 
 def _guardar_avance_csv(resultados, output_dir):
     if resultados.series:
-        df_series = pd.DataFrame(resultados.series)
-        df_series["fecha"] = pd.to_datetime(df_series["fecha"], errors="coerce")
+        df_series = _construir_df_series(resultados.series)
         df_series["region"] = df_series["serie"].map(_region_de_serie)
         df_series = df_series.sort_values(["serie", "fecha", "modelo"])
         df_series.to_csv(os.path.join(output_dir, "series.csv"), index=False, encoding="utf-8-sig")
@@ -853,17 +880,7 @@ def run(
 
     series_df = pd.DataFrame()
     if resultados.series:
-        frames = []
-        for bloque in resultados.series:
-            frames.append(pd.DataFrame({
-                "serie": bloque["serie"],
-                "fecha": pd.to_datetime(bloque["fecha"], errors="coerce"),
-                "tipo": bloque["tipo"],
-                "subset": bloque["subset"],
-                "modelo": bloque["modelo"],
-                "valor": bloque["valor"],
-            }))
-        series_df = pd.concat(frames, ignore_index=True)
+        series_df = _construir_df_series(resultados.series)
         series_df["region"] = series_df["serie"].map(_region_de_serie)
         series_df = series_df.sort_values(["serie", "fecha", "modelo"])
 
