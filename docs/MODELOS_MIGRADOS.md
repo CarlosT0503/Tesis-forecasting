@@ -13,6 +13,12 @@ historial de la conversación) para el detalle exacto celda-por-celda.
 | SARIMAX | `models/sarimax_model.py` | **Extracción exacta** de la celda 62 | Sí — orden fijo (1,1,1)(1,0,1,168), sin tuning |
 | FCNN multivariada | `models/fcnn_model.py` | **Extracción exacta** de la celda 64 | Sí — incluye las 2 estrategias originales: directa y STL-residuos |
 | Ensemble STL | `models/ensemble_stl.py` | **Extracción exacta** de la celda 60 | Sí — STL + LSTM(tendencia) + FCNN(estacionalidad) + AR(residuo), arquitectura conservada tal cual, no se convirtió en ensamble de los otros modelos ya migrados |
+| Naive | `models/naive_model.py` | **Extracción exacta** de la celda 45 | Sí — bloque NAIVE dentro de `evaluar_serie()` |
+| Naive + Tendencia | `models/naive_trend_model.py` | **Extracción exacta** de la celda 45 | Sí — bloque NAIVE TREND dentro de `evaluar_serie()` |
+| AR (standalone) | `models/ar_model.py` | **Combinación nueva** — AR aplicado directo a la serie cruda | No — solo existe `seleccionar_ar_por_aic`/`forecast_ar_resid` (celda 60), siempre aplicado a un residuo STL, nunca a la serie cruda |
+| Naive + Tendencia + Estacionalidad | `models/naive_trend_seasonal_model.py` | **Combinación nueva** — tendencia lineal + estacionalidad repetida, residuo=0 | No — la celda 64 tiene las piezas pero siempre acompañadas de un modelo de residuos |
+| AR sobre residuos + Tendencia + Estacionalidad | `models/ar_resid_trend_seasonal_model.py` | **Combinación nueva** — tendencia+estacionalidad de la celda 64 + AR (celda 60) sobre el residuo | No — la combinación exacta (tendencia lineal simple + AR sobre residuo, sin LSTM de por medio) no existe; en la celda 60 la tendencia siempre la modela una LSTM |
+| LSTM multivariada sobre residuos + Tendencia + Estacionalidad | `models/lstm_resid_model.py` | **Combinación nueva** — tendencia+estacionalidad de la celda 64 + arquitectura LSTM-por-componente de la celda 60 (retargeted a residuo) + catálogo/tratamiento de exógenas de la celda 58 | No — combina piezas de 3 celdas distintas (64, 60, 58) que nunca se combinaron así en el notebook |
 
 Los 4 extraídos el 2026-08-08 comparten con XGBoost/LightGBM el mismo patrón mecánico de adaptación: `globals()`/diccionario `series` → `exogenas_globales` (parámetro) + lectura de `{region}_GEN/IMP/EXP.csv` desde `data_dir`; script de nivel de módulo o `ejecutar_pipeline()` → `run(...)`; listas de resultados globales → acumulador local; `OUTPUT_DIR` fijo → `output_dir`. Ver el docstring de cada módulo para el detalle exacto de qué se preservó literal y qué es adaptación mecánica (no científica).
 
@@ -59,6 +65,33 @@ El smoke test de FCNN falló en Colab (commit `041a3c0`) con `ValueError: If usi
 
 Corrección quirúrgica: nueva función `_construir_df_series()` que envuelve `fecha`/`valor` con `np.atleast_1d(...)` antes de construir cada bloque — normaliza escalares a arreglos de 1 elemento sin tocar ningún valor ni el orden de las filas, y pandas hace el broadcast correctamente en ambos casos (fila única o serie completa). Se usa en los dos lugares que antes tenían el problema (`_guardar_avance_csv` y la agregación final de `run()`), eliminando también el bug silencioso del guardado incremental. Ningún cambio en arquitectura, tuning, exógenas, train/test ni métricas.
 
+## Modelos nuevos: combinaciones, NO extracciones (2026-08-09)
+
+Cuatro modelos pedidos explícitamente por el usuario no existen como pipeline completo en el notebook legacy, sino solo como piezas sueltas (funciones reutilizables) en distintas celdas. El usuario confirmó exactamente qué combinar y con qué metodología, y pidió que quedara documentado con claridad que **son combinaciones nuevas, no extracciones fieles** — a diferencia de todo lo demás en este documento.
+
+### AR (standalone) — `models/ar_model.py`
+
+Reutiliza `seleccionar_ar_por_aic`/`forecast_ar_resid` de la celda 60 (barrido de lags 1-168 por AIC, `AutoReg(trend="c")`) pero aplicado **directo a la serie cruda de Demanda**, sin ninguna descomposición STL. En la celda 60 esa función SIEMPRE se aplica a un residuo STL — nunca a la serie cruda. Univariado, split dinámico igual a `naive_model.py` (`test_size = max(720h, 10%)`, acotado a `len//3`), métricas del `metrics.py` compartido (misma familia que XGBoost/Naive/Naive_Trend). `trials.csv` es el barrido de lags (no trials de Optuna); `config_usada.csv` registra el lag óptimo.
+
+### Naive + Tendencia + Estacionalidad — `models/naive_trend_seasonal_model.py`
+
+Reutiliza `descomponer_stl`/`forecast_tendencia_lineal`/`forecast_estacionalidad_repetida` de la celda 64 **tal cual**, pero sin ningún modelo de residuo (`residuo = 0`): `pred_final = tendencia + estacionalidad`. En la celda 64 esas tres funciones siempre van acompañadas de un modelo de residuo (FCNN); esta combinación —tendencia+estacionalidad sola, sin residuo— no existe en legacy. Univariado, ventana FIJA 3600h/168h (no la fórmula dinámica de Naive/AR — STL con `period=168` necesita una ventana larga y estable), métricas de la familia celda-64 (`isfinite` + guarda contra vacío). Sin tuning.
+
+### AR sobre residuos + Tendencia + Estacionalidad — `models/ar_resid_trend_seasonal_model.py`
+
+Extiende el modelo anterior: mismas `descomponer_stl`/`forecast_tendencia_lineal`/`forecast_estacionalidad_repetida` de la celda 64, más `seleccionar_ar_por_aic` de la celda 60 aplicado al **residuo STL** (no a la serie cruda, a diferencia de `ar_model.py`). `pred_final = tendencia + estacionalidad + AR(residuo)`. Esta combinación tampoco existe en legacy: en la celda 60 la tendencia siempre la modela una LSTM tuneada con Optuna, nunca una regresión lineal simple. Univariado, misma ventana fija 3600h/168h que el modelo anterior (consistencia dentro de la familia STL), misma familia de métricas. `trials.csv` es el barrido de lags sobre el residuo.
+
+### LSTM multivariada sobre residuos + Tendencia + Estacionalidad — `models/lstm_resid_model.py`
+
+La combinación más compleja de las cuatro: combina piezas de **tres** celdas distintas.
+1. Tendencia + estacionalidad: copia exacta de la celda 64 (igual que los dos modelos anteriores).
+2. Modelo del residuo: la arquitectura LSTM-por-componente-STL de la celda 60 (`crear_ventanas`, `reshape_lstm_features`, `construir_lstm`, `tunear_lstm`, `entrenar_lstm_final`, `forecast_recursivo_lstm`) — en el Ensemble original esa arquitectura modela la TENDENCIA; aquí se retargetea al RESIDUO (funciones genéricas, no requirieron cambios).
+3. Catálogo y tratamiento de exógenas: copia exacta de la celda 58 (LSTM directa) — `EXOG_COLS_DEFAULT`, `EXOG_SOURCE_MAP`, `EXOG_CONOCIDAS_FUTURO`/`EXOG_LAG_SEMANAL`, `LAG_EXOG_FUTURO=168`, `merge_exogenas`, `alinear_exogenas_a_fechas`, `construir_future_exog_directa` — **no** el tratamiento propio del Ensemble (`preparar_exogena_lag168`, que desplaza el timestamp). Esta sustitución fue instruida explícitamente por el usuario: "usa el mismo conjunto y tratamiento de exógenas que la LSTM multivariada vigente".
+
+`pred_final = tendencia + estacionalidad + LSTM(residuo)`. Único de los cuatro que SÍ requiere exógenas (es multivariado). Ventana fija 3600h/168h, `WINDOW=168` para la LSTM (igual que Ensemble), `N_TRIALS_DEFAULT=5` (heredado de Ensemble, no el 10 de LSTM directa — la maquinaria de tuning que se reutiliza es la del Ensemble). Métricas de la familia celda-64, igual que los dos modelos anteriores. No incluye filas `componente_pred` separadas en `series.csv` (a diferencia de Ensemble) — solo `real` y la predicción final combinada, por consistencia con los otros dos modelos nuevos de esta familia.
+
+**Limitación conocida:** requiere `tensorflow` y `optuna`, ninguno instalado en el entorno de desarrollo local. No se pudo correr un smoke test real end-to-end localmente (a diferencia de los otros tres modelos nuevos). Sí se verificó por separado, con pandas/numpy/statsmodels/sklearn puros (sin tensorflow/optuna), toda la lógica que no depende de esas librerías: extracción de serie, construcción y alineación de exógenas, tratamiento futuro (conocida vs. lag168) verificado valor-por-valor, descomposición STL, y las dimensiones exactas de las ventanas que vería la LSTM (`crear_ventanas`). Debe correrse el smoke test real en Colab antes de confiar en el pipeline completo.
+
 ## Smoke tests
 
 Uno por modelo en `tests/`, mismo patrón: construyen datos sintéticos mínimos (1 región, ventanas chicas, 1 trial de Optuna donde aplica) y corren el pipeline `run()` completo de punta a punta, verificando shapes, ausencia de NaN inesperado, y que se generen los archivos esperados.
@@ -70,5 +103,9 @@ Uno por modelo en `tests/`, mismo patrón: construyen datos sintéticos mínimos
 | `tests/smoke_lstm_direct.py` | No (falta `tensorflow`/`optuna`) | PASS en Colab (commit `041a3c0`), sin cambios en este módulo |
 | `tests/smoke_fcnn.py` | No (falta `tensorflow`/`optuna`). El bug de `_construir_df_series` fue reproducido y verificado corregido con pandas/numpy puro, aislado del resto del pipeline. | FAIL en Colab (commit `041a3c0`) → corregido, pendiente de re-correr en Colab |
 | `tests/smoke_ensemble_stl.py` | No (falta `tensorflow`/`optuna`) | PASS en Colab (commit `041a3c0`), sin cambios en este módulo |
+| `tests/smoke_ar.py` | **Sí** (solo depende de statsmodels/sklearn) | OK — corrida real, MAPE=1.83%, lag óptimo=168 |
+| `tests/smoke_naive_trend_seasonal.py` | **Sí** (solo depende de statsmodels/sklearn) | OK — corrida real, MAPE=0.81% |
+| `tests/smoke_ar_resid_trend_seasonal.py` | **Sí** (solo depende de statsmodels/sklearn) | OK — corrida real, MAPE=0.85%, lag óptimo residuo=168 |
+| `tests/smoke_lstm_resid.py` | No (falta `tensorflow`/`optuna`). Lógica sin esas librerías (extracción de serie, alineación de exógenas, tratamiento futuro conocida/lag168, STL, dimensiones de ventanas) verificada por separado con pandas/numpy/statsmodels/sklearn puros. | Pendiente de correr en Colab |
 
 Todos compilan (`py_compile`) y su lógica de generación de datos sintéticos fue verificada por separado donde no dependía de las librerías faltantes.

@@ -28,9 +28,10 @@ for config in configs:
 **Implementado.** `resolve_run(config)` y `experiment_exists(config)`
 siguen existiendo como antes, y `run_matrix()` (en `matrix.py`) ya los usa
 en la practica: por cada config, si `run_dir` existe y `validar_resultado()`
-lo confirma completo, se salta; si existe pero esta incompleto, se
-reintenta con `overwrite=True` (ver punto 5 y el flag `overwrite` en
-`run_experiment()`).
+lo confirma completo, se salta; si existe pero esta incompleto, se reanuda
+con `overwrite=True` (ver punto 5 y el flag `overwrite` en
+`run_experiment()`). **Actualizado 2026-08-09**: "reintentar" ya no borra
+la carpeta -- ver punto 6 y `docs/CHECKPOINT_RESUME.md`.
 
 Limitacion documentada en el docstring de `experiment_exists()`: requiere
 que Drive ya este montado, si no siempre devuelve `False` (falso negativo,
@@ -101,14 +102,20 @@ y dentro de `run_matrix()` para decidir saltar vs. reintentar cada config.
 
 ## 6. Conservar resultados parciales si una ejecucion se interrumpe
 
-**Ya compatible desde la extraccion original, sin cambios.**
+**Implementado de punta a punta, actualizado 2026-08-09.**
 `_guardar_avance_csv()` escribe `series.csv` / `metricas.csv` /
 `trials.csv` / `config_usada.csv` en disco despues de CADA region, no solo
-al final. Si Colab se desconecta a medio pipeline, lo ya guardado
-sobrevive; solo se pierde el trabajo de la region que estaba en progreso en
-ese momento. `log.txt` (punto 4) tambien queda escrito hasta el punto de la
-interrupcion porque se usa modo `"a"` (append) y se hace flush en cada
-escritura via el tee.
+al final -- eso ya era cierto desde la extraccion original. Lo que faltaba,
+y se agrego ahora, es que **el reintento supiera leer eso ya guardado**:
+antes, `overwrite=True` borraba la carpeta entera (`shutil.rmtree`) y
+volvia a correr las 8 regiones desde cero, tirando el trabajo de las
+regiones que si habian terminado. Ahora cada modelo, al arrancar, lee su
+propio checkpoint por region (`checkpoint.cargar_checkpoint_regiones`) y
+salta las regiones que ya estan completas y validas -- ver
+`docs/CHECKPOINT_RESUME.md` para el detalle completo (causa raiz,
+arquitectura, y como se integro en los 12 modelos). `log.txt` (punto 4)
+sigue en modo `"a"` (append) con flush en cada escritura via el tee, sin
+cambios.
 
 ## 7. Resumen final de corridas completadas/fallidas y sus metricas
 

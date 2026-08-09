@@ -14,7 +14,6 @@ quedo resuelta por cual pieza.
 import contextlib
 import json
 import os
-import shutil
 import sys
 import traceback
 from dataclasses import dataclass, field
@@ -23,7 +22,11 @@ from typing import Optional
 from . import io_drive
 from .config import ExperimentConfig, build_run_name, resolved_config_dict
 from .data.exogenas import cargar_exogenas_horarias
-from .models import xgboost_model, lightgbm_model, lstm_direct, sarimax_model, fcnn_model, ensemble_stl
+from .models import (
+    xgboost_model, lightgbm_model, lstm_direct, sarimax_model, fcnn_model, ensemble_stl,
+    naive_model, naive_trend_model, ar_model, naive_trend_seasonal_model,
+    ar_resid_trend_seasonal_model, lstm_resid_model,
+)
 from .regions import REGIONS_ALL
 from .validator import validar_resultado
 
@@ -70,6 +73,48 @@ MODEL_DEFAULTS = {
         "exogenas": ensemble_stl.EXOG_COLS_DEFAULT,
         "catalogo": ensemble_stl.EXOG_CATALOGO,
     },
+    "naive": {
+        "train_hours": naive_model.TRAIN_LAST_HOURS_DEFAULT,
+        "forecast_horizon": naive_model.FORECAST_HORIZON_DEFAULT,
+        "optuna_n_trials": None,  # sin tuning
+        "exogenas": naive_model.EXOG_COLS_DEFAULT,
+        "catalogo": naive_model.EXOG_CATALOGO,
+    },
+    "naive_trend": {
+        "train_hours": naive_trend_model.TRAIN_LAST_HOURS_DEFAULT,
+        "forecast_horizon": naive_trend_model.FORECAST_HORIZON_DEFAULT,
+        "optuna_n_trials": None,  # sin tuning
+        "exogenas": naive_trend_model.EXOG_COLS_DEFAULT,
+        "catalogo": naive_trend_model.EXOG_CATALOGO,
+    },
+    "ar": {
+        "train_hours": ar_model.TRAIN_LAST_HOURS_DEFAULT,
+        "forecast_horizon": ar_model.FORECAST_HORIZON_DEFAULT,
+        "optuna_n_trials": None,  # sin Optuna, orden por AIC
+        "exogenas": ar_model.EXOG_COLS_DEFAULT,
+        "catalogo": ar_model.EXOG_CATALOGO,
+    },
+    "naive_trend_seasonal": {
+        "train_hours": naive_trend_seasonal_model.TRAIN_LAST_HOURS_DEFAULT,
+        "forecast_horizon": naive_trend_seasonal_model.FORECAST_HORIZON_DEFAULT,
+        "optuna_n_trials": None,  # sin tuning
+        "exogenas": naive_trend_seasonal_model.EXOG_COLS_DEFAULT,
+        "catalogo": naive_trend_seasonal_model.EXOG_CATALOGO,
+    },
+    "ar_resid_trend_seasonal": {
+        "train_hours": ar_resid_trend_seasonal_model.TRAIN_LAST_HOURS_DEFAULT,
+        "forecast_horizon": ar_resid_trend_seasonal_model.FORECAST_HORIZON_DEFAULT,
+        "optuna_n_trials": None,  # sin Optuna, orden por AIC
+        "exogenas": ar_resid_trend_seasonal_model.EXOG_COLS_DEFAULT,
+        "catalogo": ar_resid_trend_seasonal_model.EXOG_CATALOGO,
+    },
+    "lstm_resid": {
+        "train_hours": lstm_resid_model.TRAIN_LAST_HOURS_DEFAULT,
+        "forecast_horizon": lstm_resid_model.FORECAST_HORIZON_DEFAULT,
+        "optuna_n_trials": lstm_resid_model.N_TRIALS_DEFAULT,
+        "exogenas": lstm_resid_model.EXOG_COLS_DEFAULT,
+        "catalogo": lstm_resid_model.EXOG_CATALOGO,
+    },
 }
 
 MODEL_RUNNERS = {
@@ -79,6 +124,12 @@ MODEL_RUNNERS = {
     "sarimax": sarimax_model.run,
     "fcnn": fcnn_model.run,
     "ensemble_stl": ensemble_stl.run,
+    "naive": naive_model.run,
+    "naive_trend": naive_trend_model.run,
+    "ar": ar_model.run,
+    "naive_trend_seasonal": naive_trend_seasonal_model.run,
+    "ar_resid_trend_seasonal": ar_resid_trend_seasonal_model.run,
+    "lstm_resid": lstm_resid_model.run,
 }
 
 
@@ -223,14 +274,23 @@ def run_experiment(
     `overwrite=False` (default): si el RUN_NAME ya existe, aborta con
     FileExistsError -- comportamiento identico al de siempre.
 
-    `overwrite=True`: permite reintentar una carpeta EXISTENTE, pero solo
-    si `validar_resultado()` confirma que esa carpeta esta incompleta o
+    `overwrite=True`: permite REANUDAR una carpeta EXISTENTE, pero solo si
+    `validar_resultado()` confirma que esa carpeta esta incompleta o
     fallida. Si la carpeta ya representa una corrida completa (8 regiones,
     sin NaN en las metricas), se sigue rechazando el sobrescribir aunque
     `overwrite=True` -- este flag es para reanudar corridas interrumpidas,
-    nunca para pisar un resultado valido. Pensado para que un futuro
-    matrix runner pueda reintentar automaticamente carpetas parciales sin
-    arriesgar destruir una corrida que ya sirvio.
+    nunca para pisar un resultado valido.
+
+    IMPORTANTE (cambio 2026-08-09): reanudar YA NO borra la carpeta ni
+    reinicia las 8 regiones desde cero. `run_dir` se conserva tal cual
+    (series.csv/metricas.csv/trials.csv/config_usada.csv/log.txt), y es
+    cada `MODEL_RUNNERS[modelo]` quien decide, region por region, cuales
+    ya estan completas y las salta (`checkpoint.cargar_checkpoint_regiones`,
+    invocado dentro de cada `run()`). Antes de este cambio, `overwrite=True`
+    hacia `shutil.rmtree(run_dir)` y volvia a correr las 8 regiones
+    completas -- en Colab, donde una sesion puede caerse a medio pipeline,
+    eso desperdiciaba todo el computo de las regiones que ya habian
+    terminado. Ver docs/CHECKPOINT_RESUME.md.
     """
     resolved = resolve_run(config)
     run_name = resolved.run_name
@@ -263,10 +323,13 @@ def run_experiment(
         print(f"Carpeta existente incompleta detectada en {run_dir}:")
         for problema in reporte.problemas:
             print(f"  - {problema}")
-        print("overwrite=True: se borra y se reintenta desde cero.")
-        shutil.rmtree(run_dir)
+        print(
+            "overwrite=True: se REANUDA en la misma carpeta (no se borra nada). "
+            "El modelo saltara las regiones que ya tengan un resultado completo y "
+            "valido, y solo recalculara las que falten o esten incompletas."
+        )
 
-    os.makedirs(run_dir)
+    os.makedirs(run_dir, exist_ok=True)
 
     resolved_cfg = resolved_config_dict(config, run_name, train_hours, forecast_horizon, optuna_n_trials, exogenas)
     with open(os.path.join(run_dir, "config.json"), "w", encoding="utf-8") as f:

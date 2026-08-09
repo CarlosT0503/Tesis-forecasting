@@ -87,6 +87,8 @@ from tensorflow.keras.layers import Input, Dense, Dropout, LSTM
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 
+from ..checkpoint import cargar_checkpoint_regiones, precargar_en_acumulador
+
 # =========================================================
 # CONFIG POR DEFECTO (identica a la celda 60)
 # =========================================================
@@ -957,6 +959,25 @@ def run(
 
     resultados = _ResultsAccumulator()
 
+    # Checkpoint por region: series.csv aqui se reconstruye por bloques
+    # (fecha/valor como arreglo) porque `_guardar_avance_csv` de este
+    # modulo no tiene la guarda `np.atleast_1d` -- ver el mismo comentario
+    # en sarimax_model.py. Esto tambien preserva las filas
+    # "componente_pred" (LSTM_trend/FCNN_seasonal/AR_resid) sin tratamiento
+    # especial: se reconstruyen como cualquier otro bloque agrupado por
+    # (serie, tipo, subset, modelo).
+    regiones_completas, previos = cargar_checkpoint_regiones(
+        output_dir, regions_all, forecast_horizon=forecast_horizon,
+        requiere_trials=True, requiere_config_usada=True, formato_series="bloques",
+    )
+    precargar_en_acumulador(resultados, previos)
+
+    regiones_pendientes = [r for r in regions_all if r not in regiones_completas]
+    if regiones_completas:
+        print(f"Checkpoint: {len(regiones_completas)} region(es) ya completas, se saltan: {sorted(regiones_completas)}")
+    if not regiones_pendientes:
+        print("Todas las regiones ya estan completas segun el checkpoint.")
+
     print("=" * 80)
     print("ENSEMBLE STL + LSTM + FCNN + AR CON EXOGENAS GENERALIZADAS")
     print("=" * 80)
@@ -968,7 +989,7 @@ def run(
     for exog in exog_names:
         print(f"   - {exog}")
 
-    regiones = cargar_regiones(regions_all, data_dir)
+    regiones = cargar_regiones(regiones_pendientes, data_dir)
 
     for region, df in regiones.items():
         try:

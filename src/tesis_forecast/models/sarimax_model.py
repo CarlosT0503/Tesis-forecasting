@@ -47,6 +47,8 @@ import pandas as pd
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
+from ..checkpoint import cargar_checkpoint_regiones, precargar_en_acumulador
+
 # =========================================================
 # CONFIG POR DEFECTO (identica a la celda 62)
 # =========================================================
@@ -559,6 +561,25 @@ def run(
 
     resultados = _ResultsAccumulator()
 
+    # Checkpoint por region: SARIMAX no usa Optuna (sin trials.csv), pero
+    # SI genera config_usada.csv (order/seasonal_order fijos). `series.csv`
+    # aqui se reconstruye por bloques (fecha/valor como arreglo), no fila
+    # por fila -- `_guardar_avance_csv` de este modulo no tiene la guarda
+    # `np.atleast_1d` que si tienen FCNN/naive_trend_seasonal/etc., asi que
+    # precargar filas escalares sueltas repetiria el mismo bug que tuvo
+    # FCNN. Ver checkpoint.py.
+    regiones_completas, previos = cargar_checkpoint_regiones(
+        output_dir, regions_all, forecast_horizon=forecast_horizon,
+        requiere_config_usada=True, formato_series="bloques",
+    )
+    precargar_en_acumulador(resultados, previos)
+
+    regiones_pendientes = [r for r in regions_all if r not in regiones_completas]
+    if regiones_completas:
+        print(f"Checkpoint: {len(regiones_completas)} region(es) ya completas, se saltan: {sorted(regiones_completas)}")
+    if not regiones_pendientes:
+        print("Todas las regiones ya estan completas segun el checkpoint.")
+
     print("=" * 80)
     print("PIPELINE SARIMAX DEMANDA")
     print("=" * 80)
@@ -570,7 +591,7 @@ def run(
     for exog in exog_names:
         print(f"   - {exog}")
 
-    regiones = cargar_regiones(regions_all, data_dir)
+    regiones = cargar_regiones(regiones_pendientes, data_dir)
 
     for region, df in regiones.items():
         print("\n" + "=" * 80)

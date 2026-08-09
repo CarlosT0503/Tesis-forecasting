@@ -49,6 +49,7 @@ import optuna
 from optuna.samplers import TPESampler
 from xgboost import XGBRegressor
 
+from ..checkpoint import cargar_checkpoint_regiones, precargar_en_acumulador
 from ..metrics import mape, smape, calcular_metricas
 
 # =========================================================
@@ -798,6 +799,25 @@ def run(
     resultados = _ResultsAccumulator()
     optuna_db = os.path.join(output_dir, "optuna_xgboost.db")
 
+    # Checkpoint por region: si una region ya tiene metricas validas, el
+    # numero exacto de predicciones esperado (forecast_horizon), sus trials
+    # de Optuna y su config_usada, se salta -- no se vuelve a tunear ni a
+    # entrenar. Los trials de Optuna de xgboost/lightgbm/lstm_direct tienen
+    # ADEMAS su propio resume interno (via el .db de Optuna,
+    # load_if_exists=True); este checkpoint es a nivel de REGION COMPLETA
+    # (metricas + prediccion final ya guardadas), un nivel por encima.
+    regiones_completas, previos = cargar_checkpoint_regiones(
+        output_dir, regions_all, forecast_horizon=forecast_horizon,
+        requiere_trials=True, requiere_config_usada=True,
+    )
+    precargar_en_acumulador(resultados, previos)
+
+    regiones_pendientes = [r for r in regions_all if r not in regiones_completas]
+    if regiones_completas:
+        print(f"Checkpoint: {len(regiones_completas)} region(es) ya completas, se saltan: {sorted(regiones_completas)}")
+    if not regiones_pendientes:
+        print("Todas las regiones ya estan completas segun el checkpoint.")
+
     print("=" * 80)
     print("PIPELINE XGBOOST DEMANDA")
     print("=" * 80)
@@ -810,7 +830,7 @@ def run(
         print(f"   - {exog}")
 
     # CARGAR REGIONES
-    regiones = cargar_regiones(regions_all, data_dir)
+    regiones = cargar_regiones(regiones_pendientes, data_dir)
 
     # PROCESAR
     for region, df in regiones.items():

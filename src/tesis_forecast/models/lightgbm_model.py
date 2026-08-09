@@ -94,6 +94,7 @@ import optuna
 from optuna.samplers import TPESampler
 from lightgbm import LGBMRegressor
 
+from ..checkpoint import cargar_checkpoint_regiones, precargar_en_acumulador
 from ..metrics import mape, smape, calcular_metricas
 
 # =========================================================
@@ -880,6 +881,19 @@ def run(
     resultados = _ResultsAccumulator()
     optuna_db = os.path.join(output_dir, "optuna_lightgbm.db")
 
+    # Checkpoint por region -- ver el mismo bloque en xgboost_model.py.
+    regiones_completas, previos = cargar_checkpoint_regiones(
+        output_dir, regions_all, forecast_horizon=forecast_horizon,
+        requiere_trials=True, requiere_config_usada=True,
+    )
+    precargar_en_acumulador(resultados, previos)
+
+    regiones_pendientes = [r for r in regions_all if r not in regiones_completas]
+    if regiones_completas:
+        print(f"Checkpoint: {len(regiones_completas)} region(es) ya completas, se saltan: {sorted(regiones_completas)}")
+    if not regiones_pendientes:
+        print("Todas las regiones ya estan completas segun el checkpoint.")
+
     print("=" * 80)
     print("PIPELINE LIGHTGBM DEMANDA (ADAPTADO DESDE CELDA 46)")
     print("=" * 80)
@@ -891,7 +905,7 @@ def run(
     for exog in exog_cols:
         print(f"   - {exog}")
 
-    regiones = cargar_regiones(regions_all, data_dir)
+    regiones = cargar_regiones(regiones_pendientes, data_dir)
 
     for region, df in regiones.items():
         print("\n" + "=" * 80)

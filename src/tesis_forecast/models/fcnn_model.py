@@ -80,6 +80,8 @@ from sklearn.linear_model import LinearRegression
 
 from statsmodels.tsa.seasonal import STL
 
+from ..checkpoint import cargar_checkpoint_regiones, precargar_en_acumulador
+
 # =========================================================
 # CONFIG POR DEFECTO (identica a la celda 64)
 # =========================================================
@@ -850,6 +852,24 @@ def run(
 
     resultados = _ResultsAccumulator()
 
+    # Checkpoint por region: FCNN produce DOS modelos por region (directa y
+    # STL-residuos), asi que se exigen exactamente 2 filas de metricas/
+    # config_usada por region para considerarla completa -- si solo una de
+    # las dos estrategias termino, la region se reintenta COMPLETA (las dos
+    # estrategias comparten el mismo bloque "real" de series.csv, que solo
+    # se guarda si `huvo_resultado`, ver evaluar_region).
+    regiones_completas, previos = cargar_checkpoint_regiones(
+        output_dir, regions_all, forecast_horizon=forecast_horizon,
+        n_modelos_esperados=2, requiere_trials=True, requiere_config_usada=True,
+    )
+    precargar_en_acumulador(resultados, previos)
+
+    regiones_pendientes = [r for r in regions_all if r not in regiones_completas]
+    if regiones_completas:
+        print(f"Checkpoint: {len(regiones_completas)} region(es) ya completas, se saltan: {sorted(regiones_completas)}")
+    if not regiones_pendientes:
+        print("Todas las regiones ya estan completas segun el checkpoint.")
+
     print("=" * 80)
     print("FCNN MULTIVARIADA + STL FCNN RESIDUOS")
     print("=" * 80)
@@ -861,7 +881,7 @@ def run(
     for exog in exog_names:
         print(f"   - {exog}")
 
-    regiones = cargar_regiones(regions_all, data_dir)
+    regiones = cargar_regiones(regiones_pendientes, data_dir)
 
     for region, df in regiones.items():
         try:

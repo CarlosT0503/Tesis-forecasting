@@ -4,9 +4,12 @@ run_matrix(): cola minima de experimentos, ejecutados secuencialmente.
 No es scheduler ni infraestructura de nube -- es un loop sobre
 `run_experiment()` que:
   - salta configs ya completadas (`validar_resultado`);
-  - reintenta automaticamente carpetas incompletas/fallidas de una corrida
+  - reanuda automaticamente carpetas incompletas/fallidas de una corrida
     anterior (`overwrite=True`, seguro: `run_experiment` ya se niega a
-    tocar una carpeta completa aunque se pida overwrite);
+    tocar una carpeta completa aunque se pida overwrite). Reanudar YA NO
+    borra la carpeta ni recalcula las 8 regiones desde cero -- cada modelo
+    salta, region por region, las que ya tienen un resultado completo y
+    valido (ver `checkpoint.py` y docs/CHECKPOINT_RESUME.md);
   - continua con la siguiente config si una falla, registrando el error;
   - al final imprime un resumen de completadas/saltadas/fallidas y el MAPE
     promedio de cada una.
