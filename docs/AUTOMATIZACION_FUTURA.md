@@ -1,14 +1,15 @@
 # Compatibilidad con automatizacion futura (cola/matriz nocturna)
 
-Este documento audita `run_experiment()` (y `run_experiment()` solamente —
-no se construyo scheduler, matrix runner ni infraestructura de nube) contra
-los 8 requisitos futuros pedidos, y deja constancia de que se hizo en cada
-caso: ya estaba resuelto, se agrego una pieza minima y no invasiva, o se
-deja explicitamente pendiente para un modulo futuro.
+**Actualizado 2026-08-08**: `matrix.py` y `validator.py` ya existen (ver
+puntos 2, 5 y 7 abajo, actualizados) — este documento originalmente audito
+solo `run_experiment()` bajo el supuesto de que la cola/matriz vendria
+despues; ahora la cola minima (`run_matrix()`) ya esta implementada. Sigue
+sin existir scheduling por hora ni infraestructura de nube (punto 4 de
+"que falta").
 
-Ningun cambio de este documento toco la logica de modelado de
-`xgboost_model.py` (arquitectura, hiperparametros, Optuna, tratamiento de
-exogenas, metricas). Los cambios fueron todos en `runner.py`.
+Ningun cambio de este documento ni de `matrix.py`/`validator.py` toco la
+logica de modelado de ningun modelo (arquitectura, hiperparametros, Optuna,
+tratamiento de exogenas, metricas).
 
 ## 1. Ejecutar experimentos secuencialmente
 
@@ -24,19 +25,12 @@ for config in configs:
 
 ## 2. Detectar cuales ya existen y saltarlos
 
-**Se agrego `resolve_run(config)` y `experiment_exists(config)`.**
-
-Antes, el calculo de RUN_NAME/ruta de salida vivia mezclado dentro de
-`run_experiment()`. Ahora es una funcion pura y reutilizable
-(`resolve_run`), y `experiment_exists()` la usa para responder
-"esta config ya se corrio" sin ejecutar nada. Un futuro matrix runner:
-
-```python
-for config in configs:
-    if experiment_exists(config):
-        continue
-    run_experiment(config)
-```
+**Implementado.** `resolve_run(config)` y `experiment_exists(config)`
+siguen existiendo como antes, y `run_matrix()` (en `matrix.py`) ya los usa
+en la practica: por cada config, si `run_dir` existe y `validar_resultado()`
+lo confirma completo, se salta; si existe pero esta incompleto, se
+reintenta con `overwrite=True` (ver punto 5 y el flag `overwrite` en
+`run_experiment()`).
 
 Limitacion documentada en el docstring de `experiment_exists()`: requiere
 que Drive ya este montado, si no siempre devuelve `False` (falso negativo,
@@ -93,16 +87,17 @@ Pipeline_Resultados/<RUN_NAME>/
 
 ## 5. Validar automaticamente resultados completos (8 regiones, sin NaN, etc.)
 
-**No implementado a proposito.** No se construyo un validador. Lo que si
-se aseguro es que la validacion se pueda escribir despues como una funcion
-que solo LEE archivos, sin tocar `run_experiment()`:
+**Implementado.** `validator.py::validar_resultado(run_dir)` lee solo
+archivos (config.json/metricas.csv), no ejecuta nada, y devuelve un
+`ValidationReport` con `es_completo`, `problemas` (lista legible),
+`regiones_encontradas`/`regiones_faltantes` y conteo de filas con NaN en
+MAPE/sMAPE/MAE/RMSE. Nota: como `metricas.csv` puede tener mas de una fila
+por region (FCNN tiene 2: directa y STL-residuos), la validacion compara
+por `region` unica, no por numero total de filas.
 
-- `metricas.csv` tiene una fila por region con columnas numericas
-  (`MAPE`, `sMAPE`, `MAE`, `RMSE`) — un futuro `validar(run_dir)` puede
-  chequear `len(df) == 8` y `df[...].isna().any()` directamente.
-- `ExperimentResult` (ver mas abajo) ya trae `regiones_esperadas` y
-  `regiones_con_metricas` calculados al momento de terminar la corrida, sin
-  necesidad de releer el CSV, como primera señal rapida de completitud.
+Se usa en dos lugares: dentro de `run_experiment(..., overwrite=True)`
+antes de decidir si borra una carpeta existente (nunca borra una completa),
+y dentro de `run_matrix()` para decidir saltar vs. reintentar cada config.
 
 ## 6. Conservar resultados parciales si una ejecucion se interrumpe
 
@@ -117,10 +112,14 @@ escritura via el tee.
 
 ## 7. Resumen final de corridas completadas/fallidas y sus metricas
 
-**No implementado a proposito** (es, literalmente, el matrix runner). Lo
-que se agrego es la pieza que ese resumen va a necesitar por cada corrida:
-`run_experiment()` ahora devuelve un `ExperimentResult` en vez de solo la
-ruta:
+**Implementado.** `run_matrix()` acumula un `MatrixRunRecord` por config
+(status `completed`/`skipped_ya_completo`/`failed`, `mape_promedio`,
+`error`, `run_dir`) y al final imprime el resumen (totales, MAPE por
+corrida completada, lista de fallidas con su error). `resumen_dataframe()`
+convierte esa lista en un DataFrame para inspeccionar en el notebook.
+
+Para cada corrida individual, `run_experiment()` devuelve un
+`ExperimentResult` en vez de solo la ruta:
 
 ```python
 @dataclass
@@ -151,21 +150,18 @@ fallo), y los CSV son tabulares y con columnas documentadas (ver
 salida estan documentados como comentarios en `xgboost_model.py` y en el
 checklist de equivalencia entregado con la migracion de XGBoost).
 
-## Que falta para la automatizacion nocturna completa (fuera de esta pasada)
+## Que falta para la automatizacion nocturna completa
 
-Con las piezas de arriba, lo que realmente falta construir despues es
-poco y esta bien acotado:
+Con `matrix.py` y `validator.py` ya implementados, lo que queda es:
 
-1. `matrix.py`: expandir una lista/YAML de configs, hacer el loop
-   `experiment_exists -> run_experiment -> try/except`, acumular
-   `ExperimentResult`.
-2. `validator.py`: leer `metricas.csv`/`series.csv` de un `run_dir` y
-   devolver un veredicto de completitud (regiones, NaNs, longitud del
-   horizonte).
-3. Aislar fallos por region dentro de un mismo experimento (gap
+1. Aislar fallos por region dentro de un mismo experimento (gap
    mencionado en el punto 3), si se decide que vale la pena para correr
    overnight sin supervision.
-4. Un mecanismo de disparo (cron, notebook programado, Colab Pro
+2. Expandir `run_matrix()` para aceptar una matriz/YAML declarativo
+   (producto cartesiano de modelos x exogenas x train_hours) en vez de una
+   lista de `ExperimentConfig` ya armada a mano -- hoy `run_matrix()` ya
+   acepta cualquier lista, solo falta el generador de esa lista.
+3. Un mecanismo de disparo (cron, notebook programado, Colab Pro
    scheduled runtime, o Vertex/Cloud Run si se decide salir de Colab) —
    esto es la "infraestructura de nube" explicitamente fuera de alcance
    por ahora.

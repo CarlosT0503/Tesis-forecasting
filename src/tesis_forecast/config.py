@@ -16,10 +16,20 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional
 
-# Modelos disponibles. Se agregan mas entradas conforme se vayan
-# extrayendo LSTM directa, SARIMAX, FCNN y Ensemble del notebook legacy.
+# Modelos disponibles.
+#
+# "lightgbm" es un caso especial: no existe un pipeline vigente dedicado
+# para LightGBM en el notebook legacy (solo aparecia embebido en la celda
+# 46, un prototipo). Es un modelo ADAPTADO/ESTANDARIZADO al marco vigente
+# de XGBoost, no una extraccion exacta -- ver el docstring de
+# models/lightgbm_model.py y docs/MODELOS_MIGRADOS.md.
 MODEL_LABELS = {
     "xgboost": "XGBoost",
+    "lightgbm": "LightGBM",
+    "lstm_direct": "LSTM_Directa",
+    "sarimax": "SARIMAX",
+    "fcnn": "FCNN",
+    "ensemble_stl": "Ensemble_STL",
 }
 
 # Catalogo de exogenas y su abreviatura para el RUN_NAME, en un orden fijo

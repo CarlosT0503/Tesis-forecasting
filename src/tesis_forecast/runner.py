@@ -1,18 +1,20 @@
 """
-Orquestador minimo de un experimento: resuelve defaults, arma el RUN_NAME,
-crea la carpeta (o aborta si ya existe), monta Drive, corre el modelo, y
-guarda config.json / series.csv / metricas.csv / trials.csv / config_usada.csv.
+Orquestador de un experimento: resuelve defaults, arma el RUN_NAME, crea la
+carpeta (o la reintenta con overwrite=True si esta incompleta, o aborta si
+ya esta completa), monta Drive, corre el modelo, y guarda config.json /
+series.csv / metricas.csv / trials.csv / config_usada.csv.
 
-No hay matrices, scheduler ni infraestructura de nube todavia -- eso se
-agrega despues, en modulos separados (matrix.py, validator.py, registry.py)
-que se apoyan en las funciones de este archivo sin tener que tocarlas. Ver
-docs/AUTOMATIZACION_FUTURA.md para el mapeo explicito entre cada capacidad
-futura pedida y lo que ya existe aqui para soportarla.
+`matrix.py` (cola de experimentos) y `validator.py` (validacion de
+completitud) se apoyan en las funciones de este archivo sin tener que
+tocarlas. Scheduling por hora e infraestructura de nube siguen sin existir.
+Ver docs/AUTOMATIZACION_FUTURA.md para el detalle de que capacidad futura
+quedo resuelta por cual pieza.
 """
 
 import contextlib
 import json
 import os
+import shutil
 import sys
 import traceback
 from dataclasses import dataclass, field
@@ -21,8 +23,9 @@ from typing import Optional
 from . import io_drive
 from .config import ExperimentConfig, build_run_name, resolved_config_dict
 from .data.exogenas import cargar_exogenas_horarias
-from .models import xgboost_model
+from .models import xgboost_model, lightgbm_model, lstm_direct, sarimax_model, fcnn_model, ensemble_stl
 from .regions import REGIONS_ALL
+from .validator import validar_resultado
 
 MODEL_DEFAULTS = {
     "xgboost": {
@@ -32,10 +35,50 @@ MODEL_DEFAULTS = {
         "exogenas": xgboost_model.EXOG_COLS_DEFAULT,
         "catalogo": xgboost_model.EXOG_CATALOGO,
     },
+    "lightgbm": {
+        "train_hours": lightgbm_model.TRAIN_LAST_HOURS_DEFAULT,
+        "forecast_horizon": lightgbm_model.FORECAST_HORIZON_DEFAULT,
+        "optuna_n_trials": lightgbm_model.N_TRIALS_OPTUNA_DEFAULT,
+        "exogenas": lightgbm_model.EXOG_COLS_DEFAULT,
+        "catalogo": lightgbm_model.EXOG_CATALOGO,
+    },
+    "lstm_direct": {
+        "train_hours": lstm_direct.TRAIN_LAST_HOURS_DEFAULT,
+        "forecast_horizon": lstm_direct.FORECAST_HORIZON_DEFAULT,
+        "optuna_n_trials": lstm_direct.N_TRIALS_LSTM_DEFAULT,
+        "exogenas": lstm_direct.EXOG_COLS_DEFAULT,
+        "catalogo": lstm_direct.EXOG_CATALOGO,
+    },
+    "sarimax": {
+        "train_hours": sarimax_model.TRAIN_LAST_HOURS_DEFAULT,
+        "forecast_horizon": sarimax_model.FORECAST_HORIZON_DEFAULT,
+        "optuna_n_trials": None,  # SARIMAX no tunea, orden fijo
+        "exogenas": sarimax_model.EXOG_COLS_DEFAULT,
+        "catalogo": sarimax_model.EXOG_CATALOGO,
+    },
+    "fcnn": {
+        "train_hours": fcnn_model.TRAIN_LAST_HOURS_DEFAULT,
+        "forecast_horizon": fcnn_model.FORECAST_HORIZON_DEFAULT,
+        "optuna_n_trials": fcnn_model.N_TRIALS_DEFAULT,
+        "exogenas": fcnn_model.EXOG_COLS_DEFAULT,
+        "catalogo": fcnn_model.EXOG_CATALOGO,
+    },
+    "ensemble_stl": {
+        "train_hours": ensemble_stl.TRAIN_LAST_HOURS_DEFAULT,
+        "forecast_horizon": ensemble_stl.FORECAST_HORIZON_DEFAULT,
+        "optuna_n_trials": ensemble_stl.N_TRIALS_DEFAULT,
+        "exogenas": ensemble_stl.EXOG_COLS_DEFAULT,
+        "catalogo": ensemble_stl.EXOG_CATALOGO,
+    },
 }
 
 MODEL_RUNNERS = {
     "xgboost": xgboost_model.run,
+    "lightgbm": lightgbm_model.run,
+    "lstm_direct": lstm_direct.run,
+    "sarimax": sarimax_model.run,
+    "fcnn": fcnn_model.run,
+    "ensemble_stl": ensemble_stl.run,
 }
 
 
@@ -174,7 +217,21 @@ def run_experiment(
     config: ExperimentConfig,
     data_dir: str = "/content",
     mount_drive: bool = True,
+    overwrite: bool = False,
 ) -> ExperimentResult:
+    """
+    `overwrite=False` (default): si el RUN_NAME ya existe, aborta con
+    FileExistsError -- comportamiento identico al de siempre.
+
+    `overwrite=True`: permite reintentar una carpeta EXISTENTE, pero solo
+    si `validar_resultado()` confirma que esa carpeta esta incompleta o
+    fallida. Si la carpeta ya representa una corrida completa (8 regiones,
+    sin NaN en las metricas), se sigue rechazando el sobrescribir aunque
+    `overwrite=True` -- este flag es para reanudar corridas interrumpidas,
+    nunca para pisar un resultado valido. Pensado para que un futuro
+    matrix runner pueda reintentar automaticamente carpetas parciales sin
+    arriesgar destruir una corrida que ya sirvio.
+    """
     resolved = resolve_run(config)
     run_name = resolved.run_name
     run_dir = resolved.run_dir
@@ -187,11 +244,27 @@ def run_experiment(
         io_drive.mount_drive()
 
     if os.path.exists(run_dir):
-        raise FileExistsError(
-            f"Ya existe un experimento con este RUN_NAME:\n{run_dir}\n"
-            "No se sobrescribe. Borralo manualmente si de verdad quieres repetirlo "
-            "(mas adelante se puede agregar un flag explicito de overwrite)."
-        )
+        if not overwrite:
+            raise FileExistsError(
+                f"Ya existe un experimento con este RUN_NAME:\n{run_dir}\n"
+                "No se sobrescribe. Borralo manualmente si de verdad quieres repetirlo, "
+                "o llama run_experiment(..., overwrite=True) para reintentar "
+                "SOLO si esta carpeta quedo incompleta."
+            )
+
+        reporte = validar_resultado(run_dir)
+        if reporte.es_completo:
+            raise FileExistsError(
+                f"El experimento en {run_dir} ya esta completo (todas las regiones, "
+                "sin NaN en las metricas). No se sobrescribe ni con overwrite=True. "
+                "Borralo manualmente si de verdad quieres repetirlo."
+            )
+
+        print(f"Carpeta existente incompleta detectada en {run_dir}:")
+        for problema in reporte.problemas:
+            print(f"  - {problema}")
+        print("overwrite=True: se borra y se reintenta desde cero.")
+        shutil.rmtree(run_dir)
 
     os.makedirs(run_dir)
 
