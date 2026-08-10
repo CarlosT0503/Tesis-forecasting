@@ -1,5 +1,8 @@
 """
 run_matrix(): cola minima de experimentos, ejecutados secuencialmente.
+`build_individual_exog_matrix()`: generador de la matriz de exogenas
+individuales (una config por modelo multivariado x exogena, sin
+combinaciones acumulativas -- ver su docstring).
 
 No es scheduler ni infraestructura de nube -- es un loop sobre
 `run_experiment()` que:
@@ -27,8 +30,85 @@ import pandas as pd
 
 from . import io_drive
 from .config import ExperimentConfig
-from .runner import resolve_run, run_experiment
+from .runner import MODEL_DEFAULTS, resolve_run, run_experiment
 from .validator import validar_resultado
+
+
+def build_individual_exog_matrix(
+    exogenas: list,
+    modelos: Optional[list] = None,
+) -> list:
+    """
+    Genera un `ExperimentConfig` por cada combinacion valida (modelo
+    multivariado, UNA exogena individual) -- no acumulativas: cada config
+    lleva `exogenas=[<una sola>]`, nunca una lista de varias.
+
+    Elegibilidad de modelos (decidida leyendo `runner.MODEL_DEFAULTS`, no
+    una lista fija a mano): un modelo participa solo si su `"catalogo"` (el
+    mismo catalogo que ya usa `resolve_run()` para validar exogenas) no
+    esta vacio. Los modelos univariados (`catalogo == []`: hoy `naive`,
+    `naive_trend`, `ar`, `naive_trend_seasonal`, `ar_resid_trend_seasonal`)
+    se excluyen enteros -- no generan una corrida por cada exogena de la
+    lista, porque no aceptan ninguna.
+
+    Si `modelos` es `None` (default), se consideran TODOS los modelos
+    registrados en `MODEL_DEFAULTS`. Pasar una lista explicita restringe el
+    universo (por ejemplo, solo los modelos nuevos de una tarea concreta).
+
+    Para cada combinacion valida, se preservan TODOS los defaults
+    cientificos vigentes del modelo (`train_hours`, `forecast_horizon`,
+    `optuna_n_trials`) -- se dejan en `None` en el `ExperimentConfig`
+    resultante, que es la señal para que `resolve_run()`/`run_experiment()`
+    usen exactamente `MODEL_DEFAULTS[modelo]`, igual que en cualquier otra
+    corrida. Lo UNICO que cambia respecto al default de cada modelo es
+    `exogenas`.
+
+    Si alguna de las `exogenas` pedidas no esta en el catalogo de un modelo
+    dado (ej. Naive/AR nunca aceptan nada; o una exogena que ni siquiera
+    exista en el catalogo global), esa combinacion puntual se excluye (no
+    toda la matriz) y se imprime un aviso explicando por que -- el mismo
+    criterio de catalogo por modelo que ya aplica `resolve_run()`, solo que
+    aqui se filtra ANTES de construir el `ExperimentConfig` en vez de
+    fallar en tiempo de ejecucion.
+
+    El `RUN_NAME` de cada corrida sigue siendo el determinista de siempre
+    (`build_run_name()`, ver config.py): al llevar una sola exogena en la
+    lista, el slug de exogenas queda con un solo abreviado (ej. `_Temp` vs.
+    `_IGAE`), asi que dos exogenas distintas para el mismo modelo nunca
+    colisionan de carpeta, y el checkpoint por region
+    (`checkpoint.cargar_checkpoint_regiones`, invocado dentro de cada
+    `run()`) identifica cada una como una corrida completamente aparte,
+    exactamente igual que con cualquier otra config.
+    """
+    modelos_a_considerar = list(modelos) if modelos is not None else list(MODEL_DEFAULTS.keys())
+
+    configs = []
+    for modelo in modelos_a_considerar:
+        if modelo not in MODEL_DEFAULTS:
+            raise ValueError(f"Modelo desconocido: {modelo}. Disponibles: {list(MODEL_DEFAULTS)}")
+
+        catalogo = MODEL_DEFAULTS[modelo]["catalogo"]
+
+        if not catalogo:
+            # Univariado: no acepta ninguna exogena -- se excluye entero,
+            # no genera una corrida (redundante) por cada exogena pedida.
+            continue
+
+        for exogena in exogenas:
+            if exogena not in catalogo:
+                print(
+                    f"AVISO: '{modelo}' no reconoce la exogena '{exogena}' "
+                    f"(catalogo: {catalogo}) -- se excluye esa combinacion."
+                )
+                continue
+
+            configs.append(ExperimentConfig(
+                modelo=modelo,
+                exogenas=[exogena],
+                notas=f"Exogena individual: {exogena}.",
+            ))
+
+    return configs
 
 
 @dataclass
