@@ -48,8 +48,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from tesis_forecast import aggregator as agg
 from tesis_forecast.config import build_run_name
+from tesis_forecast.regions import REGIONS_ALL
 
 REGIONES_TEST = ["BCA", "CEN"]
+
+# 7 regiones, SIN BCA -- mismo patron confirmado empiricamente para
+# Legacy_Univariados (falta BCA en las corridas legacy).
+REGIONES_LEGACY = [r for r in REGIONS_ALL if r != "BCA"]
 
 
 # =========================================================
@@ -752,6 +757,466 @@ def test_esquema_consistente_columnas_heterogeneas():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# =========================================================
+# FIXTURES: Legacy_Univariados/ sintetico (metricas_global.csv/series_global.csv)
+# =========================================================
+
+def _escribir_legacy_univariado(
+    pipeline_dir, estrategias, regiones=None, forecast_horizon=4,
+    incluir_real=True, incluir_componente_pred=False,
+    valor_real_base=100.0, offset_horas=0, valor_real_por_region=None,
+):
+    """
+    Escribe Pipeline_Resultados/Legacy_Univariados/{metricas_global.csv,series_global.csv}
+    sinteticos, con el MISMO esquema que usa el resto del proyecto para
+    series.csv/metricas.csv (serie/modelo/fecha/tipo/subset/valor, sin
+    columna 'region' explicita -- se deriva de 'serie', igual que
+    `_region_de_serie()` en cada modulo de modelo).
+    """
+    regiones = regiones if regiones is not None else REGIONES_LEGACY
+    legacy_dir = os.path.join(pipeline_dir, "Legacy_Univariados")
+    os.makedirs(legacy_dir, exist_ok=True)
+
+    metric_rows, series_rows = [], []
+
+    for region in regiones:
+        nombre_serie = f"{region}_DEMANDA"
+        real_base = (valor_real_por_region or {}).get(region, valor_real_base)
+
+        if incluir_real:
+            fechas_reales = _pred_fechas(20 + forecast_horizon, offset_horas=offset_horas - 20)
+            for h, fecha in enumerate(fechas_reales):
+                series_rows.append({
+                    "serie": nombre_serie, "fecha": fecha, "tipo": "real",
+                    "subset": "completo", "modelo": "real", "valor": real_base + h,
+                })
+
+        fechas_test = _pred_fechas(forecast_horizon, offset_horas=offset_horas)
+        for i, estrategia in enumerate(estrategias):
+            for h, fecha in enumerate(fechas_test):
+                series_rows.append({
+                    "serie": nombre_serie, "fecha": fecha, "tipo": "prediccion",
+                    "subset": "test", "modelo": estrategia, "valor": 50.0 + i + h,
+                })
+            metric_rows.append({
+                "serie": nombre_serie, "modelo": estrategia,
+                "MAPE": 3.0 + i, "sMAPE": 3.0 + i, "MAE": 1.0, "RMSE": 1.2,
+            })
+
+            if incluir_componente_pred and i == 0:
+                for comp in ["LSTMtrend", "FCNNseason", "ARresid"]:
+                    for h, fecha in enumerate(fechas_test):
+                        series_rows.append({
+                            "serie": nombre_serie, "fecha": fecha, "tipo": "componente_pred",
+                            "subset": "test", "modelo": comp, "valor": 10.0 + h,
+                        })
+
+    metricas_path = os.path.join(legacy_dir, "metricas_global.csv")
+    series_path = os.path.join(legacy_dir, "series_global.csv")
+    pd.DataFrame(metric_rows).to_csv(metricas_path, index=False, encoding="utf-8-sig")
+    pd.DataFrame(series_rows).to_csv(series_path, index=False, encoding="utf-8-sig")
+    return metricas_path, series_path
+
+
+ESTRATEGIAS_LEGACY_EJEMPLO = [
+    "ENSEMBLE_STL_LSTMtrend_FCNNseason_ARresid",
+    "ARIMA_1_1_1",
+    "SARIMA_1_1_1__1_0_1_168",
+    "FCNN_Individual",
+    "STL_FCNN_residuos",
+    "AR_AIC",
+    "STL_AR_residuos_AIC",
+    "LSTM_Individual",
+]
+
+
+# =========================================================
+# LEGACY UNIVARIADO -- 14 escenarios
+# =========================================================
+
+def test_legacy_metricas_valido_se_integra():
+    tmp = tempfile.mkdtemp(prefix="agg_test_legacy_metricas_")
+    try:
+        metricas_path, series_path = _escribir_legacy_univariado(tmp, ESTRATEGIAS_LEGACY_EJEMPLO)
+
+        legacy_metricas_df = pd.read_csv(metricas_path, encoding="utf-8-sig")
+        legacy_series_df = pd.read_csv(series_path, encoding="utf-8-sig")
+
+        resultado = agg.procesar_legacy_univariado(legacy_metricas_df, legacy_series_df, metricas_path, series_path, verbose=False)
+
+        assert len(resultado.metricas_df) == len(ESTRATEGIAS_LEGACY_EJEMPLO) * len(REGIONES_LEGACY)
+        assert set(resultado.metricas_df["familia_experimento"]) == {"univariado"}
+        assert set(resultado.metricas_df["modelo_estrategia"]) == set(ESTRATEGIAS_LEGACY_EJEMPLO)
+        assert set(resultado.metricas_df["modelo"]) == set(agg.MAPEO_ESTRATEGIA_LEGACY_UNIVARIADO.values())
+
+        # MAE/RMSE/MAPE/sMAPE preservados tal cual (sin recalcular)
+        fila = resultado.metricas_df[
+            (resultado.metricas_df["modelo_estrategia"] == "ARIMA_1_1_1") & (resultado.metricas_df["region"] == "CEN")
+        ].iloc[0]
+        assert fila["MAPE"] == 3.0 + ESTRATEGIAS_LEGACY_EJEMPLO.index("ARIMA_1_1_1")
+        assert fila["run_dir"] == metricas_path
+        assert fila["exogenas"] == ""
+        assert fila["exogena_individual"] is None
+        assert fila["train_hours"] is None
+
+        print("OK test_legacy_metricas_valido_se_integra")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_legacy_series_valido_se_integra():
+    tmp = tempfile.mkdtemp(prefix="agg_test_legacy_series_")
+    try:
+        metricas_path, series_path = _escribir_legacy_univariado(tmp, ESTRATEGIAS_LEGACY_EJEMPLO, forecast_horizon=4)
+
+        legacy_metricas_df = pd.read_csv(metricas_path, encoding="utf-8-sig")
+        legacy_series_df = pd.read_csv(series_path, encoding="utf-8-sig")
+        resultado = agg.procesar_legacy_univariado(legacy_metricas_df, legacy_series_df, metricas_path, series_path, verbose=False)
+
+        # 8 estrategias x 7 regiones x 4 horas
+        assert len(resultado.pred_df) == len(ESTRATEGIAS_LEGACY_EJEMPLO) * len(REGIONES_LEGACY) * 4
+
+        series_df = agg.construir_series_master([], verbose=False, extra_pred_frames=[resultado.pred_df], extra_real_frames=[resultado.real_df])
+        preds = series_df[series_df["serie_tipo"] == "prediccion"]
+        assert set(preds["familia_experimento"]) == {"univariado"}
+        assert set(preds["run_name"]) == {agg.build_run_name_legacy_univariado(e) for e in ESTRATEGIAS_LEGACY_EJEMPLO}
+        assert set(preds["modelo"]) == set(agg.MAPEO_ESTRATEGIA_LEGACY_UNIVARIADO.values())
+
+        print("OK test_legacy_series_valido_se_integra")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_legacy_7_regiones_no_se_fuerzan_a_8():
+    tmp = tempfile.mkdtemp(prefix="agg_test_legacy_7regiones_")
+    try:
+        metricas_path, series_path = _escribir_legacy_univariado(tmp, ["AR_AIC"], regiones=REGIONES_LEGACY)
+
+        legacy_metricas_df = pd.read_csv(metricas_path, encoding="utf-8-sig")
+        legacy_series_df = pd.read_csv(series_path, encoding="utf-8-sig")
+
+        validacion = agg.validar_legacy_univariado(legacy_metricas_df, legacy_series_df)
+        assert validacion.ok
+        assert "BCA" not in validacion.regiones_metricas
+        assert "BCA" not in validacion.regiones_series
+        assert len(validacion.regiones_metricas) == 7
+        assert set(validacion.regiones_metricas) == set(REGIONES_LEGACY)
+
+        resultado = agg.procesar_legacy_univariado(legacy_metricas_df, legacy_series_df, metricas_path, series_path, verbose=False)
+        assert set(resultado.metricas_df["region"]) == set(REGIONES_LEGACY)
+        assert len(resultado.metricas_df) == 7  # 1 estrategia x 7 regiones, no 8
+
+        print("OK test_legacy_7_regiones_no_se_fuerzan_a_8")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_legacy_componente_pred_excluido():
+    tmp = tempfile.mkdtemp(prefix="agg_test_legacy_componente_")
+    try:
+        metricas_path, series_path = _escribir_legacy_univariado(
+            tmp, ["AR_AIC", "ENSEMBLE_STL_LSTMtrend_FCNNseason_ARresid"],
+            regiones=REGIONES_LEGACY[:2], forecast_horizon=4, incluir_componente_pred=True,
+        )
+        legacy_metricas_df = pd.read_csv(metricas_path, encoding="utf-8-sig")
+        legacy_series_df = pd.read_csv(series_path, encoding="utf-8-sig")
+
+        validacion = agg.validar_legacy_univariado(legacy_metricas_df, legacy_series_df)
+        assert validacion.tiene_componente_pred
+
+        resultado = agg.procesar_legacy_univariado(legacy_metricas_df, legacy_series_df, metricas_path, series_path, verbose=False)
+        assert "componente_pred" not in set(resultado.pred_df.get("serie_tipo", pd.Series(dtype=object)))
+        assert not set(resultado.pred_df["modelo_estrategia"]) & {"LSTMtrend", "FCNNseason", "ARresid"}
+        # Solo las 2 estrategias reales x 2 regiones x 4 horas -- sin los componentes
+        assert len(resultado.pred_df) == 2 * 2 * 4
+
+        print("OK test_legacy_componente_pred_excluido")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_legacy_real_deduplicado_contra_moderno():
+    tmp = tempfile.mkdtemp(prefix="agg_test_legacy_real_dedup_")
+    try:
+        # Corrida moderna 1B con region CEN, offset/horizonte que se solapan con la legacy
+        _escribir_run_1b_univariado(tmp, "Naive_auto", "naive", ["CEN"], forecast_horizon=4, offset_horas=0, valor_real_base=100.0)
+        # Legacy con la MISMA region/ventana/valor real -- debe deduplicarse, no duplicarse
+        metricas_path, series_path = _escribir_legacy_univariado(
+            tmp, ["AR_AIC"], regiones=["CEN"], forecast_horizon=4, offset_horas=0, valor_real_base=100.0,
+        )
+
+        resultado_moderno = agg.descubrir_runs_completos(tmp, regiones_esperadas=["CEN"])
+        assert len(resultado_moderno.runs) == 1
+
+        legacy_metricas_df = pd.read_csv(metricas_path, encoding="utf-8-sig")
+        legacy_series_df = pd.read_csv(series_path, encoding="utf-8-sig")
+        legacy_resultado = agg.procesar_legacy_univariado(legacy_metricas_df, legacy_series_df, metricas_path, series_path, verbose=False)
+
+        series_df = agg.construir_series_master(
+            resultado_moderno.runs, verbose=False,
+            extra_pred_frames=[legacy_resultado.pred_df], extra_real_frames=[legacy_resultado.real_df],
+        )
+
+        reales = series_df[series_df["serie_tipo"] == "real"]
+        # 1 region x 4 horas, deduplicado entre moderno Y legacy -- no 2x4=8
+        assert len(reales) == 4, f"esperaba 4 filas 'real' deduplicadas (moderno+legacy), hubo {len(reales)}"
+        assert not reales.duplicated(subset=["region", "timestamp"]).any()
+
+        print("OK test_legacy_real_deduplicado_contra_moderno")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_legacy_conflicto_real_reportado():
+    tmp = tempfile.mkdtemp(prefix="agg_test_legacy_conflicto_")
+    try:
+        # Mismo horizonte, pero con "real" DISTINTO entre moderno y legacy
+        _escribir_run_1b_univariado(tmp, "Naive_auto", "naive", ["CEN"], forecast_horizon=4, offset_horas=0, valor_real_base=100.0)
+        metricas_path, series_path = _escribir_legacy_univariado(
+            tmp, ["AR_AIC"], regiones=["CEN"], forecast_horizon=4, offset_horas=0, valor_real_base=999.0,
+        )
+
+        resultado_moderno = agg.descubrir_runs_completos(tmp, regiones_esperadas=["CEN"])
+        legacy_metricas_df = pd.read_csv(metricas_path, encoding="utf-8-sig")
+        legacy_series_df = pd.read_csv(series_path, encoding="utf-8-sig")
+        legacy_resultado = agg.procesar_legacy_univariado(legacy_metricas_df, legacy_series_df, metricas_path, series_path, verbose=False)
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            series_df = agg.construir_series_master(
+                resultado_moderno.runs, verbose=True,
+                extra_pred_frames=[legacy_resultado.pred_df], extra_real_frames=[legacy_resultado.real_df],
+            )
+        salida = buf.getvalue()
+        assert "valores 'real' distintos entre corridas" in salida, "el conflicto real legacy/moderno no se reporto"
+
+        reales = series_df[series_df["serie_tipo"] == "real"]
+        assert len(reales) == 4  # deduplicado, no promediado -- una sola fuente por hora
+        assert (reales["valor"] < 200).all() or (reales["valor"] > 200).all()
+
+        print("OK test_legacy_conflicto_real_reportado")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_legacy_run_name_estable():
+    nombre1 = agg.build_run_name_legacy_univariado("SARIMA_1_1_1__1_0_1_168")
+    nombre2 = agg.build_run_name_legacy_univariado("SARIMA_1_1_1__1_0_1_168")
+    assert nombre1 == nombre2 == "Legacy_Univariado__SARIMA_1_1_1__1_0_1_168"
+
+    # Unico por estrategia, no depende del orden de llamada
+    nombres = {agg.build_run_name_legacy_univariado(e) for e in ESTRATEGIAS_LEGACY_EJEMPLO}
+    assert len(nombres) == len(ESTRATEGIAS_LEGACY_EJEMPLO)
+
+    # No colisiona con RUN_NAMEs modernos reales (todos empiezan con MODEL_LABELS, nunca con el prefijo legacy)
+    nombres_modernos = {
+        build_run_name("xgboost", 336, 168, ["Temperatura"]),
+        build_run_name("sarimax", 1440, 168, ["Temperatura", "IGAE"]),
+        build_run_name("naive", "auto", "auto", []),
+    }
+    assert not (nombres & nombres_modernos)
+    assert all(n.startswith("Legacy_Univariado__") for n in nombres)
+
+    print("OK test_legacy_run_name_estable")
+
+
+def test_legacy_mapping_estrategia_modelo_canonico():
+    esperado = {
+        "ENSEMBLE_STL_LSTMtrend_FCNNseason_ARresid": "ensemble_stl_univariado",
+        "ARIMA_1_1_1": "arima",
+        "SARIMA_1_1_1__1_0_1_168": "sarima",
+        "FCNN_Individual": "fcnn_univariada",
+        "STL_FCNN_residuos": "fcnn_residuos_stl",
+        "AR_AIC": "ar_aic",
+        "STL_AR_residuos_AIC": "ar_residuos_stl",
+        "LSTM_Individual": "lstm_univariada",
+    }
+    assert agg.MAPEO_ESTRATEGIA_LEGACY_UNIVARIADO == esperado
+
+    # Ningun canonico legacy colisiona con un canonico moderno (1A/1B)
+    canonicos_legacy = set(esperado.values())
+    canonicos_modernos = agg.FAMILIA_1A_MODELOS | agg.FAMILIA_1B_MODELOS
+    assert not (canonicos_legacy & canonicos_modernos), (
+        f"canonico(s) legacy colisionan con canonicos modernos: {canonicos_legacy & canonicos_modernos}"
+    )
+
+    print("OK test_legacy_mapping_estrategia_modelo_canonico")
+
+
+def test_legacy_estrategia_desconocida_no_se_inventa():
+    tmp = tempfile.mkdtemp(prefix="agg_test_legacy_desconocida_")
+    try:
+        estrategias = ["AR_AIC", "MODELO_RARISIMO_NO_MAPEADO"]
+        metricas_path, series_path = _escribir_legacy_univariado(tmp, estrategias, regiones=REGIONES_LEGACY[:2], forecast_horizon=4)
+
+        legacy_metricas_df = pd.read_csv(metricas_path, encoding="utf-8-sig")
+        legacy_series_df = pd.read_csv(series_path, encoding="utf-8-sig")
+
+        validacion = agg.validar_legacy_univariado(legacy_metricas_df, legacy_series_df)
+        assert validacion.estrategias_sin_mapeo == ["MODELO_RARISIMO_NO_MAPEADO"]
+        assert any("sin mapeo" in p.lower() for p in validacion.problemas)
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            resultado = agg.procesar_legacy_univariado(legacy_metricas_df, legacy_series_df, metricas_path, series_path, verbose=True)
+        salida = buf.getvalue()
+        assert "MODELO_RARISIMO_NO_MAPEADO" in salida  # se reporta explicitamente
+
+        # Se incluye igual (no se pierden resultados reales), pero con modelo=None -- nunca se inventa un id
+        fila_desconocida = resultado.metricas_df[resultado.metricas_df["modelo_estrategia"] == "MODELO_RARISIMO_NO_MAPEADO"]
+        assert len(fila_desconocida) == 2  # 2 regiones, no se excluyo
+        assert fila_desconocida["modelo"].isna().all()
+        assert fila_desconocida["familia_experimento"].eq("univariado").all()
+
+        assert "MODELO_RARISIMO_NO_MAPEADO" in resultado.estrategias_sin_mapeo
+
+        print("OK test_legacy_estrategia_desconocida_no_se_inventa")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_legacy_no_se_clasifica_como_1a_1b_individual_temp_igae():
+    tmp = tempfile.mkdtemp(prefix="agg_test_legacy_familia_")
+    try:
+        metricas_path, series_path = _escribir_legacy_univariado(tmp, ESTRATEGIAS_LEGACY_EJEMPLO, regiones=REGIONES_LEGACY[:2], forecast_horizon=4)
+        legacy_metricas_df = pd.read_csv(metricas_path, encoding="utf-8-sig")
+        legacy_series_df = pd.read_csv(series_path, encoding="utf-8-sig")
+
+        resultado = agg.procesar_legacy_univariado(legacy_metricas_df, legacy_series_df, metricas_path, series_path, verbose=False)
+
+        familias = set(resultado.metricas_df["familia_experimento"])
+        assert familias == {"univariado"}
+        assert not familias & {"1A", "1B", "individual", "temp_igae", "unknown"}
+
+        # Los canonicos legacy tampoco estan en las listas 1A/1B (clasificar_familia() nunca se llamo para estas filas)
+        canonicos_presentes = set(resultado.metricas_df["modelo"].dropna())
+        assert not (canonicos_presentes & (agg.FAMILIA_1A_MODELOS | agg.FAMILIA_1B_MODELOS))
+
+        print("OK test_legacy_no_se_clasifica_como_1a_1b_individual_temp_igae")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_idempotencia_con_legacy():
+    tmp_pipeline = tempfile.mkdtemp(prefix="agg_test_idem_legacy_pipeline_")
+    try:
+        _escribir_run_1a_estilo_xgboost(
+            tmp_pipeline, "XGBoost_train336h_fh4h_baseline", "xgboost",
+            ["Temperatura", "Primarias", "Secundarias", "Terciarias", "IGAE", "Generacion", "Importacion", "Exportacion"],
+            REGIONES_TEST,
+        )
+        metricas_path, series_path = _escribir_legacy_univariado(tmp_pipeline, ESTRATEGIAS_LEGACY_EJEMPLO, forecast_horizon=4)
+
+        metricas_df, series_df, descubrimiento = agg.consolidar_resultados(
+            tmp_pipeline, regiones_esperadas=REGIONES_TEST,
+            legacy_metricas_path=metricas_path, legacy_series_path=series_path,
+        )
+
+        assert "univariado" in set(metricas_df["familia_experimento"])
+        assert len(metricas_df[metricas_df["familia_experimento"] == "univariado"]) == len(ESTRATEGIAS_LEGACY_EJEMPLO) * len(REGIONES_LEGACY)
+
+        metricas_df2, series_df2, descubrimiento2 = agg.consolidar_resultados(
+            tmp_pipeline, regiones_esperadas=REGIONES_TEST,
+            legacy_metricas_path=metricas_path, legacy_series_path=series_path,
+        )
+
+        pd.testing.assert_frame_equal(
+            metricas_df.sort_values(["run_name", "region"]).reset_index(drop=True),
+            metricas_df2.sort_values(["run_name", "region"]).reset_index(drop=True),
+        )
+        pd.testing.assert_frame_equal(series_df.reset_index(drop=True), series_df2.reset_index(drop=True))
+
+        print("OK test_idempotencia_con_legacy")
+    finally:
+        shutil.rmtree(tmp_pipeline, ignore_errors=True)
+
+
+def test_legacy_univariados_no_se_descubre_como_run_moderno():
+    tmp_pipeline = tempfile.mkdtemp(prefix="agg_test_legacy_no_redescubierto_")
+    try:
+        _escribir_run_1a_estilo_xgboost(tmp_pipeline, "XGBoost_train336h_fh4h_baseline", "xgboost",
+                                         ["Temperatura", "IGAE"], REGIONES_TEST)
+        _escribir_legacy_univariado(tmp_pipeline, ["AR_AIC"], regiones=REGIONES_LEGACY[:1], forecast_horizon=4)
+
+        resultado = agg.descubrir_runs_completos(tmp_pipeline, regiones_esperadas=REGIONES_TEST)
+
+        assert len(resultado.runs) == 1  # solo la corrida moderna
+        assert all(r.run_name != "Legacy_Univariados" for r in resultado.runs)
+        assert all(d.nombre != "Legacy_Univariados" for d in resultado.descartados)
+        assert resultado.n_sin_config == 0, (
+            f"Legacy_Univariados/ se conto como 'sin config.json' (n_sin_config={resultado.n_sin_config}) -- deberia excluirse antes"
+        )
+
+        print("OK test_legacy_univariados_no_se_descubre_como_run_moderno")
+    finally:
+        shutil.rmtree(tmp_pipeline, ignore_errors=True)
+
+
+def test_legacy_archivo_faltante_error_claro():
+    tmp_pipeline = tempfile.mkdtemp(prefix="agg_test_legacy_archivo_faltante_")
+    try:
+        _escribir_run_1a_estilo_xgboost(tmp_pipeline, "XGBoost_train336h_fh4h_baseline", "xgboost",
+                                         ["Temperatura", "IGAE"], REGIONES_TEST)
+        metricas_path, series_path = _escribir_legacy_univariado(tmp_pipeline, ["AR_AIC"], regiones=REGIONES_LEGACY[:1], forecast_horizon=4)
+
+        # Solo un path -- debe fallar de inmediato, sin escribir nada
+        output_dir = os.path.join(tmp_pipeline, "Consolidado")
+        try:
+            agg.consolidar_resultados(
+                tmp_pipeline, regiones_esperadas=REGIONES_TEST,
+                legacy_metricas_path=metricas_path, legacy_series_path=None,
+            )
+            assert False, "esperaba ValueError por pasar solo un path legacy"
+        except ValueError as e:
+            assert "AMBOS" in str(e) or "ambos" in str(e).lower()
+        assert not os.path.exists(output_dir), "no deberia haber escrito nada si la integracion legacy fallo"
+
+        # Path legacy que no existe -- error claro, no crea Consolidado/ a medias
+        try:
+            agg.consolidar_resultados(
+                tmp_pipeline, regiones_esperadas=REGIONES_TEST,
+                legacy_metricas_path=os.path.join(tmp_pipeline, "NO_EXISTE.csv"),
+                legacy_series_path=series_path,
+            )
+            assert False, "esperaba FileNotFoundError por legacy_metricas_path inexistente"
+        except FileNotFoundError:
+            pass
+        assert not os.path.exists(output_dir), "no deberia haber escrito nada si el archivo legacy no existe"
+
+        print("OK test_legacy_archivo_faltante_error_claro")
+    finally:
+        shutil.rmtree(tmp_pipeline, ignore_errors=True)
+
+
+def test_no_regresion_consolidado_moderno_sin_legacy():
+    """Sin pasar legacy_metricas_path/legacy_series_path, consolidar_resultados debe comportarse EXACTAMENTE igual que antes de esta tarea."""
+    tmp_pipeline = tempfile.mkdtemp(prefix="agg_test_no_regresion_")
+    try:
+        _escribir_run_1a_estilo_xgboost(
+            tmp_pipeline, "XGBoost_train336h_fh4h_baseline", "xgboost",
+            ["Temperatura", "Primarias", "Secundarias", "Terciarias", "IGAE", "Generacion", "Importacion", "Exportacion"],
+            REGIONES_TEST,
+        )
+        _escribir_run_1b_univariado(tmp_pipeline, "Naive_auto", "naive", REGIONES_TEST)
+
+        metricas_df, series_df, descubrimiento = agg.consolidar_resultados(tmp_pipeline, regiones_esperadas=REGIONES_TEST)
+
+        assert "univariado" not in set(metricas_df["familia_experimento"])
+        assert set(metricas_df["familia_experimento"]) == {"1A", "1B"}
+
+        reporte_df = agg.construir_reporte_consolidacion(descubrimiento)
+        assert set(reporte_df["origen"]) == {"moderno"}
+
+        # Las columnas nuevas (test_start/test_end/n_predicciones) siguen presentes pero
+        # no rompen nada -- metricas_master conserva todas las columnas de siempre
+        for col in ["run_name", "modelo", "familia_experimento", "region", "MAE", "RMSE", "MAPE", "sMAPE"]:
+            assert col in metricas_df.columns
+
+        print("OK test_no_regresion_consolidado_moderno_sin_legacy")
+    finally:
+        shutil.rmtree(tmp_pipeline, ignore_errors=True)
+
+
 def main():
     test_clasificacion_1a()
     test_clasificacion_1b()
@@ -768,6 +1233,23 @@ def main():
     test_esquema_consistente_columnas_heterogeneas()
 
     print("\nTODOS LOS TESTS DEL AGREGADOR PASARON (13/13 escenarios)")
+
+    test_legacy_metricas_valido_se_integra()
+    test_legacy_series_valido_se_integra()
+    test_legacy_7_regiones_no_se_fuerzan_a_8()
+    test_legacy_componente_pred_excluido()
+    test_legacy_real_deduplicado_contra_moderno()
+    test_legacy_conflicto_real_reportado()
+    test_legacy_run_name_estable()
+    test_legacy_mapping_estrategia_modelo_canonico()
+    test_legacy_estrategia_desconocida_no_se_inventa()
+    test_legacy_no_se_clasifica_como_1a_1b_individual_temp_igae()
+    test_idempotencia_con_legacy()
+    test_legacy_univariados_no_se_descubre_como_run_moderno()
+    test_legacy_archivo_faltante_error_claro()
+    test_no_regresion_consolidado_moderno_sin_legacy()
+
+    print("\nTODOS LOS TESTS DE LEGACY UNIVARIADO PASARON (14/14 escenarios)")
 
 
 if __name__ == "__main__":
