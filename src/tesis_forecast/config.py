@@ -82,9 +82,15 @@ class ExperimentConfig:
     optuna_n_trials: Optional[int] = None
     seed: int = 42
     notas: str = ""
+    # Sufijo opcional para el RUN_NAME (ej. "timefix") -- pensado para
+    # rerunear una config ya existente sin pisar ni mezclarse con la
+    # carpeta anterior (que puede seguir siendo valida como evidencia
+    # historica hasta que el rerun se valide). None (default) -> RUN_NAME
+    # identico al de siempre, cero impacto en ninguna corrida existente.
+    sufijo_run_name: Optional[str] = None
 
 
-def build_run_name(modelo: str, train_hours: int, forecast_horizon: int, exogenas: list) -> str:
+def build_run_name(modelo: str, train_hours: int, forecast_horizon: int, exogenas: list, sufijo: Optional[str] = None) -> str:
     if modelo not in MODEL_LABELS:
         raise ValueError(f"Modelo desconocido: {modelo}")
 
@@ -99,7 +105,15 @@ def build_run_name(modelo: str, train_hours: int, forecast_horizon: int, exogena
     # Modelos univariados (exogenas=[], ej. naive/naive_trend/AR) no tienen
     # slug -- se omite el "_" final en vez de dejarlo colgando. No afecta a
     # ningun modelo existente: todos sus defaults tienen exogenas no vacias.
-    return f"{base}_{slug}" if slug else base
+    nombre = f"{base}_{slug}" if slug else base
+
+    # Sufijo opcional (ver ExperimentConfig.sufijo_run_name) -- se agrega
+    # SIEMPRE al final, despues del slug de exogenas, para que nunca
+    # colisione con un RUN_NAME sin sufijo.
+    if sufijo:
+        nombre = f"{nombre}_{sufijo}"
+
+    return nombre
 
 
 def _git_commit() -> Optional[str]:
@@ -132,6 +146,7 @@ def resolved_config_dict(
         "optuna_n_trials": optuna_n_trials,
         "seed": config.seed,
         "notas": config.notas,
+        "sufijo_run_name": config.sufijo_run_name,
         "run_name": run_name,
         "git_commit": _git_commit(),
         "generated_at": datetime.now(timezone.utc).isoformat(),

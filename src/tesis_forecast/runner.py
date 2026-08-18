@@ -206,7 +206,7 @@ def resolve_run(config: ExperimentConfig) -> ResolvedRun:
             f"Catalogo permitido: {defaults['catalogo']}"
         )
 
-    run_name = build_run_name(config.modelo, train_hours, forecast_horizon, exogenas)
+    run_name = build_run_name(config.modelo, train_hours, forecast_horizon, exogenas, sufijo=config.sufijo_run_name)
     run_dir = os.path.join(io_drive.resolve_base_dir(), run_name)
 
     return ResolvedRun(

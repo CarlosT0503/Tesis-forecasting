@@ -216,12 +216,20 @@ def cargar_regiones(regions_all, data_dir):
 
 
 def convertir_hora_0_23(serie_hora):
-    hora = pd.to_numeric(serie_hora, errors="coerce")
-    if hora.dropna().empty:
-        return hora
-    if hora.min() >= 1 and hora.max() <= 24:
-        return hora.astype(float) - 1
-    return hora.astype(float)
+    """
+    Hora viene conceptualmente en 1..24 -> hora_0_23 = Hora - 1, SIEMPRE.
+
+    FIX (bug de desfase +1h, confirmado por auditoria): esta funcion antes
+    solo restaba 1 si TODA la columna caia en [1,24]; una sola fila fuera
+    de rango dejaba la columna COMPLETA sin ajustar, produciendo un
+    desfase sistematico de 1 hora en la columna 'fecha' de series.csv
+    respecto al resto del proyecto. Este modelo es univariado (sin
+    exogenas) y usa train/test indexados por POSICION, no por datetime, asi
+    que el bug nunca afecto los valores de MAE/RMSE/MAPE/sMAPE ya
+    calculados -- solo la etiqueta de fecha. Ahora es incondicional e
+    igual a xgboost_model.py/naive_model.py/etc.
+    """
+    return pd.to_numeric(serie_hora, errors="coerce").astype(float) - 1
 
 
 def extraer_serie_horaria(df, columna):

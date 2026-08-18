@@ -262,12 +262,21 @@ def cargar_regiones(regions_all, data_dir):
 
 
 def convertir_hora_0_23(serie_hora):
-    hora = pd.to_numeric(serie_hora, errors="coerce")
-    if hora.dropna().empty:
-        return hora
-    if hora.min() >= 1 and hora.max() <= 24:
-        return hora.astype(float) - 1
-    return hora.astype(float)
+    """
+    Hora viene conceptualmente en 1..24 -> hora_0_23 = Hora - 1, SIEMPRE.
+
+    FIX (bug de desfase +1h, confirmado por auditoria): esta funcion antes
+    solo restaba 1 si TODA la columna caia en [1,24]; una sola fila fuera
+    de rango dejaba la columna COMPLETA sin ajustar, produciendo un
+    desfase sistematico de 1 hora respecto a la demanda de xgboost_model.py/
+    lightgbm_model.py/lstm_direct.py/sarimax_model.py/naive_model.py/
+    naive_trend_model.py/ar_model.py (que siempre restan 1, sin
+    condicion). Ahora es incondicional e igual a esos modulos. Ver tambien
+    `_hora_a_0_23()` mas abajo (exogenas) -- ambas funciones deben quedar
+    en la MISMA convencion para que `alinear_exogenas_a_fechas()` no
+    desalinee demanda vs exogenas.
+    """
+    return pd.to_numeric(serie_hora, errors="coerce").astype(float) - 1
 
 
 def extraer_serie_horaria(df, columna):
@@ -295,12 +304,15 @@ def extraer_serie_horaria(df, columna):
 # =========================================================
 
 def _hora_a_0_23(hora):
-    hora = pd.to_numeric(hora, errors="coerce")
-    if hora.dropna().empty:
-        return hora
-    if hora.min() >= 1 and hora.max() <= 24:
-        return hora.astype(float) - 1
-    return hora.astype(float)
+    """
+    Hora viene conceptualmente en 1..24 -> resta 1, SIEMPRE (mismo fix que
+    `convertir_hora_0_23()` arriba, ver su docstring). Aplica a las
+    exogenas normalizadas por `_normalizar_exogena()` -- demanda y
+    exogenas quedan garantizadas en la MISMA convencion horaria, para que
+    el merge por 'datetime' en `alinear_exogenas_a_fechas()` no las
+    desalinee.
+    """
+    return pd.to_numeric(hora, errors="coerce").astype(float) - 1
 
 
 def _normalizar_exogena(df, nombre_variable):
