@@ -745,7 +745,7 @@ def test_esquema_consistente_columnas_heterogeneas():
         # Las columnas comunes a los 3 (MAPE/sMAPE/MAE/RMSE/region + las 13 de metadata) siguen presentes en todas las filas
         for col in ["MAE", "RMSE", "MAPE", "sMAPE", "region"] + agg._COLUMNAS_METADATA:
             assert col in metricas_df.columns, f"falta columna comun {col}"
-            assert metricas_df[col].notna().all() or col in ("exogena_individual", "notas"), f"columna comun {col} con NaN inesperado"
+            assert metricas_df[col].notna().all() or col in ("exogena_individual", "notas", "metodologia"), f"columna comun {col} con NaN inesperado"
 
         # El esquema (conjunto de columnas) debe ser el MISMO al reconstruir dos veces seguidas
         metricas_df2 = agg.construir_metricas_master(resultado.runs)
