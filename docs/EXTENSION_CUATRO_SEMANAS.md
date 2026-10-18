@@ -94,6 +94,44 @@ confirmar que las copias de Drive son identicas** (celda de auditoria de
 | Exogenas globales | Temperatura, IGAE, Primarias, Secundarias, Terciarias: ultimo dato real 2026-03-31. |
 | `drop_every_13th` | **Resuelto**: la hoja del IGAE de INEGI trae, tras cada ano, una columna `Anual` (posiciones 13, 26, 39, 52...); la funcion elimina esos totales anuales para dejar solo los meses. |
 
+## Reproduccion local de S4 con datos reales (2026-10-17)
+
+Los modelos estadisticos no necesitan TensorFlow/Optuna y se corrieron aqui
+(`scripts/run_local_estadisticos.py`) sobre las copias locales de los datos.
+Como los originales de `Pipeline_Resultados/` viven en Drive, se compara contra
+las tablas de la tesis y contra `Legacy_Univariados`.
+
+| Modelo (S4, 3600 h / 168 h) | Referencia | Resultado |
+|---|---|---|
+| Naive | Tabla 5.2 (7 regiones) | **Coincide exactamente** en las 7 regiones |
+| Naive + Tendencia | Tabla 5.2 | **Coincide exactamente** en las 7 regiones |
+| AR por AIC | `Legacy_Univariados` `AR_AIC` (y media 5.84 de la Tabla 6.4) | **Coincide** en las 7 regiones |
+| AR sobre residuos STL | `Legacy_Univariados` `STL_AR_residuos_AIC` (media 5.41, Tabla 6.4) | **Coincide** en las 7 regiones |
+| Naive + Tendencia + Estacionalidad | Tabla 5.2, 3.a columna | **NO coincide**: CEN 2.21 (tesis 2.83), NES 6.97 (6.71), NOR 4.70 (9.62), NTE 5.49 (5.22), OCC 2.28 (2.42), ORI 5.39 (6.11), PEN 9.21 (5.08) |
+| BCA, 384 h: ARIMA, SARIMA, AR, STL+AR | Tabla 6.5 | **Coincide exactamente** (37.37 / 4.12 / 15.19 / 26.19 % de MAPE) |
+
+Conclusiones que se pueden respaldar:
+
+1. Las copias locales de `_long.csv` son los datos con los que se produjeron esas
+   tablas (al menos las ultimas 3600 h de cada region). Falta confirmar que las de
+   Drive son identicas (MD5).
+2. El script legacy univariado usaba, para `AR_AIC` y `STL_AR_residuos_AIC`, la
+   misma ventana que el pipeline moderno (3600 h de entrenamiento, 168 h de
+   prueba, semana S4). Eso hace plausible que la configuracion de 3600 h de la
+   Tabla 5.13 (LSTM individual) tambien describa ese script, aunque su LSTM no se
+   puede reproducir sin el codigo perdido.
+3. **Tabla 5.2, columna "Naive+Trend+Seasonal", no sale de este codigo** con la
+   ventana S4. Hay que compararla con `Naive_Trend_Seasonal_train3600h_fh168h`
+   de `Pipeline_Resultados/` (celda 3 de `run_ventanas.ipynb`) para saber si la
+   tabla se tomo de otra corrida (por ejemplo la del "desplazamiento de 1 h").
+4. **BCA no tiene una restriccion de disponibilidad**: el archivo local tiene
+   historia completa desde 2019 y, aun asi, los resultados con 384 h coinciden con
+   la Tabla 6.5. La frase de la tesis ("se utilizaron 384 horas debido a la
+   disponibilidad de la serie") no se sostiene con estos datos; si la serie de Drive
+   fuera mas corta, las cifras no coincidirian. Confirmar con el MD5 de Drive.
+5. SARIMAX (lento: SARIMA estacional de 168 h con 5 exogenas) esta corriendo
+   localmente en S4, S1 y S2; sus resultados se anexan cuando terminen.
+
 ## Baselines Naive, Naive+Trend y AR
 
 Su division original es dinamica ("auto": prueba = max(720 h, 10 % de la serie)),

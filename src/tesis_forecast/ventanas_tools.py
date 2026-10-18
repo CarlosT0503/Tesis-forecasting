@@ -198,18 +198,19 @@ def construir_configs(nivel: str, ventana: str) -> list:
     from .matrix import build_individual_exog_matrix
 
     t1 = [
-        _cfg("sarimax", EXOG_5, ventana, 1440, "S-ext T1"),
-        _cfg("xgboost", EXOG_8, ventana, 336, "S-ext T1"),
-        _cfg("lightgbm", EXOG_8, ventana, 336, "S-ext T1"),
-        _cfg("naive_trend_seasonal", [], ventana, None, "S-ext T1"),
-        _cfg("ar_resid_trend_seasonal", [], ventana, None, "S-ext T1"),
-        # Baselines univariados con ventana fija: su division original es dinamica
-        # ("auto"); aqui entrenan con las 3600 h previas (igual que la familia STL)
-        # y pronostican 168 h. Esos modelos ya aceptan enteros (capacidad existente).
+        # De menor a mayor costo (SARIMAX con estacionalidad de 168 h es el mas lento).
         _cfg("naive", [], ventana, BASELINES_TRAIN_HOURS, "S-ext T1 baseline ventana fija"),
         _cfg("naive_trend", [], ventana, BASELINES_TRAIN_HOURS, "S-ext T1 baseline ventana fija"),
+        _cfg("naive_trend_seasonal", [], ventana, None, "S-ext T1"),
+        _cfg("ar_resid_trend_seasonal", [], ventana, None, "S-ext T1"),
         _cfg("ar", [], ventana, BASELINES_TRAIN_HOURS, "S-ext T1 baseline ventana fija"),
+        _cfg("xgboost", EXOG_8, ventana, 336, "S-ext T1"),
+        _cfg("lightgbm", EXOG_8, ventana, 336, "S-ext T1"),
+        _cfg("sarimax", EXOG_5, ventana, 1440, "S-ext T1"),
     ]
+    # Naive/Naive_Trend/AR: su division original es dinamica ("auto"); aqui entrenan
+    # con las 3600 h previas (igual que la familia STL) y pronostican 168 h. Esos
+    # modulos ya aceptan enteros (capacidad existente).
     t2 = [
         _cfg("fcnn", EXOG_5, ventana, 3600, "S-ext T2"),
         _cfg("lstm_resid", EXOG_5, ventana, 3600, "S-ext T2"),
