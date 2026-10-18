@@ -22,15 +22,17 @@ El cuaderno solo lanza lo marcado `colab`; el script local solo lo marcado `loca
 
 ## PC
 
-Procesos en segundo plano (no hace falta lanzarlos de nuevo salvo que se apague la PC):
+Un unico **supervisor** (`scripts/cola_local.py`, entorno `.venv_local`) corre en segundo plano y no depende de ninguna sesion de chat:
 
-| Proceso | Que hace | Reanudar si se interrumpe |
-|---|---|---|
-| SARIMAX T1 (uno por semana) | `scripts/run_local_estadisticos.py --ventanas <S#> --modelos sarimax` | mismo comando |
-| SARIMAX T3 (cadenas por semana) | arrancan solos al terminar T1 de su semana | `python scripts/run_local_estadisticos.py --ventanas S4 S1 S2 S3 --niveles T3 --modelos sarimax` |
-| XGBoost y LightGBM (T1 y luego T3) | `powershell -File scripts\lanzar_arboles_local.ps1` (usa el entorno aislado `.venv_local`) | mismo comando |
+```powershell
+powershell -Command "Start-Process .venv_local\Scripts\python.exe -ArgumentList 'scripts\cola_local.py' -WindowStyle Hidden"
+```
 
-Los scripts nuevos limitan BLAS/OpenMP a **un hilo por proceso** para que varios procesos no se estorben. `.venv_local/` es un entorno aislado (pandas 2.2.3, numpy 2.2.3, statsmodels 0.14.5, scikit-learn 1.6.1, optuna 5.0.0, xgboost 3.4.1, lightgbm 4.7.0): no toca el Python principal.
+- Prioridad: XGBoost/LightGBM T1 -> SARIMAX T1 -> XGBoost/LightGBM T3 -> SARIMAX T3 (este ultimo arranca solo cuando no queda nada mas prioritario).
+- Maximo 3 procesos a la vez (2 SARIMAX como mucho mientras queden arboles), 1 hilo BLAS/OpenMP por proceso, escalonados 20 s.
+- No lanza trabajos nuevos con menos de 1.2 GB de RAM libre ni con bateria < 30 % sin corriente; deja de mantener la PC despierta si salta una proteccion. No cambia ajustes de energia.
+- Reanuda desde los checkpoints: relanzar el supervisor no repite nada completo. Un fallo se reintenta 2 veces.
+- Estado en vivo: `resultados_locales/cola/estado_cola.json` y `supervisor.log`; un log por trabajo en esa carpeta.
 
 ## Copiar resultados de la PC a Drive
 
