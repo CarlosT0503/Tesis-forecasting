@@ -4,21 +4,21 @@
 
 | Donde | Modelos | Corridas |
 |---|---|---|
-| **PC** (`scripts/run_local_estadisticos.py`) | naive, naive_trend, naive_trend_seasonal, ar, ar_resid_trend_seasonal, sarimax (T1) y sarimax (T3) | 48 (12 por semana) |
-| **Colab** (`notebooks/run_ventanas.ipynb`) | xgboost, lightgbm, fcnn, lstm_resid, lstm_direct, ensemble_stl (T1, T2, T3) | 168 (42 por semana) |
+| **PC** (`scripts/run_local_estadisticos.py`) | naive, naive_trend, naive_trend_seasonal, ar, ar_resid_trend_seasonal, sarimax, **xgboost, lightgbm** (T1 y T3) | 104 (26 por semana) |
+| **Colab** (`notebooks/run_ventanas.ipynb`) | fcnn, lstm_resid, lstm_direct, ensemble_stl (T2 y T3) | 112 (28 por semana) |
 
 La columna `ejecuta_en` de `docs/plan_corridas_ventanas.csv` lo dice para cada corrida.
 El cuaderno solo lanza lo marcado `colab`; el script local solo lo marcado `local`.
 
 ## Colab (lanzar y dejar)
 
-1. Colab -> abrir `notebooks/run_ventanas.ipynb` desde GitHub (`CarlosT0503/Tesis-forecasting`, rama `main`).
+1. Colab -> *Archivo -> Abrir cuaderno -> GitHub* -> `CarlosT0503/Tesis-forecasting`, rama `main`, `notebooks/run_ventanas.ipynb`.
 2. Entorno de ejecucion -> **GPU (T4)**.
-3. Ejecutar la celda **1 Setup** (autorizar Drive).
-4. Ejecutar la celda **2 Auditoria** (1 minuto; solo lectura).
-5. Ejecutar la celda **3 Lanzamiento** con `SESION = "A"` y dejarla. Opcional: segunda pestana con `SESION = "B"` (S2 y S3). Nunca la misma sesion en dos pestanas.
+3. Celda de codigo **1** (Setup; autorizar Drive). Debe imprimir la version del repositorio y no fallar los `assert`.
+4. Celda **2** (Auditoria) y **3** (Estado): solo lectura, opcionales.
+5. Celda **4** (Lanzamiento) con `SESION = "A"` y dejarla. Segunda pestana opcional: `SESION = "B"`. Nunca la misma sesion en dos pestanas.
 
-**Si se corta:** volver a ejecutar celdas 1 y 3. Lo completo se salta; lo parcial continua desde la ultima region guardada. No hay que borrar nada.
+**Si se corta:** volver a ejecutar las celdas 1 y 4. Lo completo se salta; lo parcial continua desde la ultima region guardada.
 
 ## PC
 

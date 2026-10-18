@@ -36,9 +36,12 @@ FAMILIAS_TIMEFIX = {"fcnn", "ensemble_stl", "lstm_resid"}
 BASELINES_AUTO = {"naive", "naive_trend", "ar"}
 
 # Reparto de ejecucion para no duplicar corridas entre la PC y Colab: estos modelos
-# solo necesitan pandas/statsmodels y se corren en la PC (scripts/run_local_estadisticos.py);
-# todo lo demas (redes, XGBoost, LightGBM) se corre en Colab.
-MODELOS_LOCALES = {"naive", "naive_trend", "naive_trend_seasonal", "ar_resid_trend_seasonal", "ar", "sarimax"}
+# no necesitan TensorFlow (pandas/statsmodels, XGBoost, LightGBM) y se corren en la PC
+# (scripts/run_local_estadisticos.py); las redes neuronales se corren en Colab (GPU).
+MODELOS_LOCALES = {
+    "naive", "naive_trend", "naive_trend_seasonal", "ar_resid_trend_seasonal", "ar", "sarimax",
+    "xgboost", "lightgbm",
+}
 
 
 def ejecuta_en(modelo: str) -> str:
@@ -496,3 +499,31 @@ def guardar_tiempos(registros: list, ruta_csv: str) -> pd.DataFrame:
     os.makedirs(os.path.dirname(ruta_csv), exist_ok=True)
     df.to_csv(ruta_csv, mode="a", header=not os.path.exists(ruta_csv), index=False, encoding="utf-8")
     return df
+
+
+# =========================================================
+# 6. ESTADO DEL PLAN (completas / parciales / sin iniciar)
+# =========================================================
+
+def estado_plan(ventanas_base_dir: str, ejecuta: Optional[str] = None, ventanas: Optional[list] = None) -> pd.DataFrame:
+    """
+    Cruza el plan con lo que existe en `ventanas_base_dir`: por cada corrida
+    planeada, `completa` (8 regiones, sin NaN), `parcial` (carpeta incompleta;
+    `regiones_ok` dice cuantas) o `no_iniciada`. Solo lectura.
+    """
+    from .validator import validar_resultado
+
+    plan = plan_dataframe(ventanas=ventanas)
+    if ejecuta is not None:
+        plan = plan[plan["ejecuta_en"] == ejecuta].copy()
+    estados, regiones_ok = [], []
+    for _, fila in plan.iterrows():
+        run_dir = os.path.join(ventanas_base_dir, fila["ventana"], fila["run_name"])
+        if not os.path.isdir(run_dir):
+            estados.append("no_iniciada"); regiones_ok.append(0); continue
+        rep = validar_resultado(run_dir)
+        estados.append("completa" if rep.es_completo else "parcial")
+        regiones_ok.append(len(rep.regiones_encontradas))
+    plan["estado"] = estados
+    plan["regiones_ok"] = regiones_ok
+    return plan

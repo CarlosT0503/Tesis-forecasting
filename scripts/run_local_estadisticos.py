@@ -17,6 +17,12 @@ import os
 import sys
 from unittest import mock
 
+# Un hilo de BLAS por proceso: con varios procesos en paralelo, cada uno con un
+# hilo por nucleo satura la CPU y los hilos se estorban (mide mas lento).
+# Debe fijarse ANTES de importar numpy.
+for _v in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+    os.environ.setdefault(_v, "1")
+
 # runner.py importa todos los modelos; los que necesitan librerias pesadas se
 # sustituyen por stubs (aqui solo se ejecutan modelos que no las usan).
 for nombre in [

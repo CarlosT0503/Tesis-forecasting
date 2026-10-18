@@ -72,8 +72,8 @@ def main():
           "Naive/Naive_Trend/AR en T1 con ventana fija 3600 h / 168 h")
     plan = vt.plan_dataframe()
     por_entorno = plan.groupby(["ventana", "ejecuta_en"]).size().unstack()
-    check((por_entorno["local"] == 12).all() and (por_entorno["colab"] == 42).all(),
-          f"reparto por semana: 12 corridas en la PC + 42 en Colab ({por_entorno.iloc[0].to_dict()})")
+    check((por_entorno["local"] == 26).all() and (por_entorno["colab"] == 28).all(),
+          f"reparto por semana: 26 corridas en la PC + 28 en Colab ({por_entorno.iloc[0].to_dict()})")
     cfgs = vt.construir_configs("T1", "S1") + vt.construir_configs("T2", "S1") + vt.construir_configs("T3", "S1")
     loc, col = vt.filtrar_por_entorno(cfgs, "local"), vt.filtrar_por_entorno(cfgs, "colab")
     nl = {resolve_run(c).run_name for c in loc}; nc = {resolve_run(c).run_name for c in col}
