@@ -34,6 +34,22 @@ FAMILIAS_TIMEFIX = {"fcnn", "ensemble_stl", "lstm_resid"}
 # Modelos con division original dinamica ("auto"): no son comparables con la
 # corrida original; en las ventanas semanales se ejecutan con ventana fija.
 BASELINES_AUTO = {"naive", "naive_trend", "ar"}
+
+# Reparto de ejecucion para no duplicar corridas entre la PC y Colab: estos modelos
+# solo necesitan pandas/statsmodels y se corren en la PC (scripts/run_local_estadisticos.py);
+# todo lo demas (redes, XGBoost, LightGBM) se corre en Colab.
+MODELOS_LOCALES = {"naive", "naive_trend", "naive_trend_seasonal", "ar_resid_trend_seasonal", "ar", "sarimax"}
+
+
+def ejecuta_en(modelo: str) -> str:
+    return "local" if modelo in MODELOS_LOCALES else "colab"
+
+
+def filtrar_por_entorno(configs: list, entorno: str) -> list:
+    """Deja solo las configuraciones que corresponden a 'local' o 'colab'."""
+    if entorno not in ("local", "colab"):
+        raise ValueError("entorno debe ser 'local' o 'colab'")
+    return [c for c in configs if ejecuta_en(c.modelo) == entorno]
 BASELINES_TRAIN_HOURS = 3600
 
 EXOG_5 = ["Temperatura", "IGAE", "Generacion", "Importacion", "Exportacion"]
@@ -261,7 +277,8 @@ def plan_dataframe(ventanas: Optional[list] = None, niveles: tuple = ("T1", "T2"
             for c in construir_configs(nivel, v):
                 r = resolve_run(c)
                 filas.append({
-                    "ventana": v, "nivel": nivel, "modelo": c.modelo, "run_name": r.run_name,
+                    "ventana": v, "nivel": nivel, "ejecuta_en": ejecuta_en(c.modelo),
+                    "modelo": c.modelo, "run_name": r.run_name,
                     "exogenas": "+".join(r.exogenas) or "(ninguna)", "train_hours": r.train_hours,
                     "forecast_horizon": r.forecast_horizon, "optuna_n_trials": r.optuna_n_trials,
                     "run_dir_relativo": os.path.join("Pipeline_Resultados_Ventanas", v, r.run_name).replace(os.sep, "/"),

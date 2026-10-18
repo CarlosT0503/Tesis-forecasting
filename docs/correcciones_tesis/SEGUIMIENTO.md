@@ -6,7 +6,7 @@ Estados: **Pendiente** · **En preparación** · **Redacción preparada** · **I
 - *Verificada* = Roberto (o el autor) confirmó que la observación quedó resuelta. **Ninguna lo está todavía.**
 - Las correcciones preparadas viven en archivos independientes de esta carpeta; **`tesis.tex` y el PDF no se han tocado.**
 
-Última actualización: 2026-10-17.
+Última actualización: 2026-10-17. Hallazgos que afectan a varias observaciones: ver `HALLAZGOS_PENDIENTES.md` (H1–H11).
 
 | # | Observación (resumen) | Categoría | Tipo | Estado | Archivo / evidencia | Notas y dependencias |
 |---|---|---|---|---|---|---|

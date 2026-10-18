@@ -43,17 +43,24 @@ def main():
     ap.add_argument("--out", default="resultados_locales/Pipeline_Resultados_Ventanas")
     ap.add_argument("--ventanas", nargs="+", default=["S4", "S1", "S2", "S3"])
     ap.add_argument("--modelos", nargs="+", default=MODELOS_LOCALES)
+    ap.add_argument("--niveles", nargs="+", default=["T1"], choices=["T1", "T2", "T3"])
     args = ap.parse_args()
 
     io_drive.BASE_DIR_VENTANAS = os.path.abspath(args.out)
     data_dir = os.path.abspath(args.data_dir)
     os.makedirs(io_drive.BASE_DIR_VENTANAS, exist_ok=True)
-    tiempos = os.path.join(io_drive.BASE_DIR_VENTANAS, "_auditoria", "tiempos_ventanas.csv")
+    tiempos = os.path.join(
+        io_drive.BASE_DIR_VENTANAS, "_auditoria",
+        "tiempos_local_" + "-".join(args.ventanas) + "_" + "-".join(args.niveles) + "_" + "-".join(sorted(args.modelos))[:40] + ".csv",
+    )
 
     for v in args.ventanas:
-        configs = [c for c in vt.construir_configs("T1", v) if c.modelo in args.modelos]
-        orden = {m: i for i, m in enumerate(args.modelos)}
-        configs.sort(key=lambda c: orden[c.modelo])
+        configs = []
+        for nivel in args.niveles:
+            orden = {m: i for i, m in enumerate(args.modelos)}
+            parte = [c for c in vt.construir_configs(nivel, v) if c.modelo in args.modelos]
+            parte.sort(key=lambda c: orden[c.modelo])
+            configs += parte
         print(f"\n##### Ventana {v}: {len(configs)} configuraciones -> {io_drive.BASE_DIR_VENTANAS}")
         registros = run_matrix(configs, data_dir=data_dir, mount_drive=False)
         vt.guardar_tiempos(registros, tiempos)
