@@ -1,0 +1,49 @@
+% R14 -- Fuentes de información (propuesta para el Capítulo 2). NO integrado en tesis.tex.
+% Claves nuevas por crear en la bibliografía: INEGI_IGAE, TEMPERATURA. Existentes: CENACE, SIE.
+% Los textos marcados [VERIFICAR] están pendientes (ver R14_fuentes_datos.md).
+
+\section{Fuentes de información}\label{sec:fuentes}
+
+Los datos de esta tesis proceden de fuentes institucionales de acceso público. Se emplearon dos tipos de información: series anuales y mensuales por entidad federativa, que sustentan el análisis descriptivo de este capítulo, y series horarias por región del Sistema Eléctrico Nacional, que constituyen la base de los experimentos de pronóstico de los capítulos siguientes.
+
+\textbf{Datos por entidad federativa.} El consumo y la generación de energía eléctrica por entidad federativa se obtuvieron del Sistema de Información Energética (SIE) de la Secretaría de Energía \cite{SIE}. El consumo se publica con frecuencia anual, en gigawatts-hora, y el archivo utilizado abarca de 2006 a 2024; sus cifras de 2024 están actualizadas solo hasta junio, de modo que ese año está incompleto y no es comparable con los años completos. La generación corresponde a la generación bruta de la Comisión Federal de Electricidad (CFE) más los Productores Independientes de Energía (PIE), se publica con frecuencia mensual, en megawatts-hora, y el archivo descargado cubre de enero de 2002 a marzo de 2025; el análisis de este capítulo emplea los registros hasta diciembre de 2024 \textbf{[VERIFICAR]}. Por su denominación, esta serie se limita a la generación de CFE y de los PIE.
+
+\textbf{Datos regionales horarios.} Las series que se pronostican y las variables de generación, importación y exportación proceden del Centro Nacional de Control de Energía (CENACE) \cite{CENACE}, organismo que opera el Sistema Eléctrico Nacional. La información se organiza por región de control: Baja California (BCA), Central (CEN), Noreste (NES), Noroeste (NOR), Norte (NTE), Occidental (OCC), Oriental (ORI) y Peninsular (PEN). Baja California Sur no se incluyó porque no se encontró una serie de demanda reciente para esa región. Para cada región y cada hora se dispone de la estimación de demanda por balance, la generación y los flujos reales de importación y de exportación, todos en megawatts-hora. La variable que se pronostica es la estimación de demanda por balance; se trata, por tanto, de una estimación y no de una medición directa del consumo.
+
+\textbf{Variables exógenas económicas y climáticas.} La actividad económica se representó con el Indicador Global de la Actividad Económica (IGAE) del Instituto Nacional de Estadística y Geografía (INEGI) \cite{INEGI_IGAE}: un índice mensual de volumen físico con base 2018 = 100, de cobertura nacional, disponible para el total y para las actividades primarias, secundarias y terciarias. La temperatura se tomó de una serie de temperatura promedio de frecuencia mensual \cite{TEMPERATURA} \textbf{[VERIFICAR fuente y unidad]}. El archivo del IGAE incluye, después de cada año, una columna con el total anual; esas columnas se eliminaron para conservar únicamente los valores mensuales.
+
+\subsection{Cobertura temporal y frecuencia}
+
+La Tabla~\ref{tab:fuentes} resume las series utilizadas. Las series regionales de CENACE abarcan del 1 de enero de 2019 al 23 de mayo de 2026, es decir, 2\,700 días con registro horario en cada región (64\,800 registros, 64\,799 en BCA). Los registros siguen la hora local, por lo que los días del cambio de horario tienen 23 o 25 horas y el campo de hora llega a 25 en estos últimos; en las regiones distintas de BCA los cambios de horario ocurren hasta 2022, y en BCA hasta 2026. En el periodo analizado la demanda y la generación no presentan valores faltantes.
+
+\begin{table}[H]
+\centering
+\caption{Fuentes, frecuencia y cobertura de los datos.}
+\label{tab:fuentes}
+\small
+\begin{tabular}{p{3.4cm}p{3.1cm}p{1.8cm}p{3.7cm}p{2.4cm}}
+\hline
+\textbf{Variable} & \textbf{Fuente} & \textbf{Frecuencia original} & \textbf{Cobertura en el archivo} & \textbf{Uso} \\
+\hline
+Consumo por entidad federativa & SIE-SENER \cite{SIE} & Anual & 2006--2024 (2024 hasta junio) & Análisis descriptivo \\
+Generación bruta por entidad federativa & SIE-SENER \cite{SIE}, con información de CFE & Mensual & Ene 2002 -- mar 2025 & Análisis descriptivo \\
+Demanda (estimación por balance) por región & CENACE \cite{CENACE} & Horaria & 2019-01-01 a 2026-05-23 & Variable pronosticada \\
+Generación por región & CENACE \cite{CENACE} & Horaria & 2019-01-01 a 2026-05-23 & Variable exógena \\
+Importación y exportación por región & CENACE \cite{CENACE} & Horaria & Ver limitación (iv) & Variable exógena \\
+IGAE (total y por actividad) & INEGI \cite{INEGI_IGAE} & Mensual & Ene 1993 -- mar 2026 (se usa desde ene 2019) & Variable exógena \\
+Temperatura promedio & \cite{TEMPERATURA} & Mensual & Ene 2002 -- mar 2026 (se usa desde ene 2019) & Variable exógena \\
+\hline
+\end{tabular}
+\end{table}
+
+Las series mensuales (IGAE y temperatura) se convirtieron a frecuencia horaria repitiendo el valor del mes en cada una de sus horas, sin interpolación; por ello, dentro de un mismo mes estas variables son constantes.
+
+\subsection{Disponibilidad de las variables exógenas y fecha de corte}
+
+Para que todas las configuraciones experimentales dispusieran de la misma información exógena, se fijó una \textbf{fecha de corte común}: las series globales (IGAE, sus componentes por actividad y temperatura) se utilizaron hasta marzo de 2026. Esa fecha no tiene un significado particular; es el límite de información exógena compartido por todos los experimentos y evita que una configuración tenga ventaja informativa sobre otra. A partir del corte se conserva el último valor disponible (relleno hacia adelante), de modo que en las semanas de prueba, todas posteriores a marzo de 2026, estas variables permanecen constantes y no aportan variación.
+
+Las variables exógenas se clasificaron además según su disponibilidad al momento de pronosticar. La temperatura y el IGAE se trataron como conocidas durante el horizonte. La generación, la importación y la exportación no se conocen con anticipación, por lo que sus valores reales nunca se utilizaron en el horizonte de pronóstico, sino una aproximación construida con semanas previas: el promedio de la misma hora una y dos semanas antes (XGBoost, LightGBM y SARIMAX; en los dos primeros también las componentes primaria, secundaria y terciaria del IGAE), el valor de la misma hora una semana antes (LSTM directa y LSTM sobre residuos) o un desplazamiento de 168 horas de la serie completa (FCNN y Ensemble STL).
+
+\subsection{Limitaciones de los datos}
+
+(i) La variable pronosticada es una estimación de demanda por balance, no una medición directa. (ii) Baja California Sur no se modeló por falta de una serie reciente. (iii) El consumo por entidad federativa es anual y su último año (2024) está incompleto, por lo que las comparaciones entre años deben excluirlo o interpretarlo con cautela; la generación por entidad corresponde solo a CFE y PIE. \textbf{(iv) [INCLUIR SOLO SI SE CONFIRMA EN LA COPIA DE DRIVE]} Los archivos de importación y exportación proceden de las columnas de flujo real de CENACE, que solo contienen valores en 2019; desde 2020 esas variables carecen de dato real y, tras el relleno de valores faltantes, se mantienen constantes. (v) El IGAE y la temperatura son mensuales y se expandieron a horas de forma plana; sus últimos meses disponibles pueden ser preliminares. (vi) La fecha de corte común implica que las variables globales no varían en las cuatro semanas de prueba. (vii) Las series regionales incluyen los cambios de horario descritos arriba.
