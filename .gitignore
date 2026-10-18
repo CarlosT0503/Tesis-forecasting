@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Datos y resultados locales (pesados / privados): nunca al repositorio
+datos_locales/
+resultados_locales/
+series_dashboard.csv

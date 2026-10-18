@@ -19,7 +19,7 @@ import traceback
 from dataclasses import dataclass, field
 from typing import Optional
 
-from . import io_drive
+from . import io_drive, windows
 from .config import ExperimentConfig, build_run_name, resolved_config_dict
 from .data.exogenas import cargar_exogenas_horarias
 from .models import (
@@ -150,6 +150,7 @@ class ResolvedRun:
     forecast_horizon: int
     optuna_n_trials: int
     exogenas: list
+    ventana: Optional[str] = None
 
 
 @dataclass
@@ -207,7 +208,17 @@ def resolve_run(config: ExperimentConfig) -> ResolvedRun:
         )
 
     run_name = build_run_name(config.modelo, train_hours, forecast_horizon, exogenas, sufijo=config.sufijo_run_name)
-    run_dir = os.path.join(io_drive.resolve_base_dir(), run_name)
+
+    if config.ventana:
+        windows.get_ventana(config.ventana)  # valida el id
+        if forecast_horizon != windows.HORAS_VENTANA:
+            raise ValueError(
+                f"Con ventana={config.ventana!r} el horizonte debe ser {windows.HORAS_VENTANA}h "
+                f"(recibido {forecast_horizon})."
+            )
+        run_dir = os.path.join(io_drive.resolve_ventanas_base_dir(config.ventana), run_name)
+    else:
+        run_dir = os.path.join(io_drive.resolve_base_dir(), run_name)
 
     return ResolvedRun(
         modelo=config.modelo,
@@ -217,6 +228,7 @@ def resolve_run(config: ExperimentConfig) -> ResolvedRun:
         forecast_horizon=forecast_horizon,
         optuna_n_trials=optuna_n_trials,
         exogenas=exogenas,
+        ventana=config.ventana,
     )
 
 
@@ -262,6 +274,37 @@ def _tee_stdout_to_file(path):
     finally:
         sys.stdout = original_stdout
         log_file.close()
+
+
+def _preparar_datos_ventana(data_dir: str, ventana_id: str, train_hours: int, run_dir: str) -> str:
+    """
+    Materializa los datos hasta el fin de la ventana (ver windows.py) y
+    devuelve el directorio que los modelos deben usar como `data_dir`. Deja
+    una copia del manifiesto en la carpeta de la corrida.
+    """
+    destino = os.path.join(windows.carpeta_datos_ventana(ventana_id), f"train{train_hours}h")
+    manifest = windows.materializar_datos_ventana(
+        data_dir, ventana_id, destino, regiones=REGIONS_ALL, train_hours=train_hours,
+    )
+
+    v = windows.get_ventana(ventana_id)
+    print(f"Ventana {ventana_id}: prueba {v.test_start} .. {v.test_end} ({windows.HORAS_VENTANA} h)")
+    print(f"Datos de la ventana materializados en: {destino}")
+    for region, d in manifest["regiones"].items():
+        if region in manifest["regiones_omitidas"]:
+            continue
+        print(
+            f"   {region}: ultima fecha {d['ultima_fecha']}, "
+            f"{d['horas_previas_validas']:,} h previas validas, "
+            f"{d['nan_demanda_ventana']} NaN en la semana de prueba"
+        )
+    for region, motivo in manifest["regiones_omitidas"].items():
+        print(f"   *** REGION OMITIDA {region}: {motivo}")
+
+    with open(os.path.join(run_dir, windows.MANIFEST_NOMBRE), "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2, ensure_ascii=False)
+
+    return destino
 
 
 def run_experiment(
@@ -347,7 +390,11 @@ def run_experiment(
             print(f"Experimento: {run_name}")
             print(f"Resultados en: {run_dir}")
 
-            exogenas_globales = cargar_exogenas_horarias(data_dir=data_dir)
+            data_dir_modelos = data_dir
+            if config.ventana:
+                data_dir_modelos = _preparar_datos_ventana(data_dir, config.ventana, train_hours, run_dir)
+
+            exogenas_globales = cargar_exogenas_horarias(data_dir=data_dir_modelos)
 
             modelo_run = MODEL_RUNNERS[config.modelo]
             series_df, metricas_df, trials_df, config_usada_df = modelo_run(
@@ -357,7 +404,7 @@ def run_experiment(
                 forecast_horizon=forecast_horizon,
                 exog_cols=exogenas,
                 optuna_n_trials=optuna_n_trials,
-                data_dir=data_dir,
+                data_dir=data_dir_modelos,
                 output_dir=run_dir,
             )
 

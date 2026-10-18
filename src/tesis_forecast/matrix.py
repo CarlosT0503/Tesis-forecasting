@@ -22,6 +22,7 @@ ahora -- ver docs/AUTOMATIZACION_FUTURA.md.
 """
 
 import os
+import time
 import traceback
 from dataclasses import dataclass
 from typing import Optional
@@ -119,6 +120,7 @@ class MatrixRunRecord:
     mape_promedio: Optional[float]
     error: Optional[str]
     run_dir: Optional[str]
+    duracion_s: Optional[float] = None
 
 
 def run_matrix(
@@ -165,12 +167,14 @@ def run_matrix(
             print("Se reintenta (overwrite=True).")
             overwrite = True
 
+        t0 = time.time()
         try:
             resultado = run_experiment(config, data_dir=data_dir, mount_drive=False, overwrite=overwrite)
 
             registros.append(MatrixRunRecord(
                 config, resultado.run_name, "completed",
                 resultado.mape_promedio, None, resultado.run_dir,
+                duracion_s=time.time() - t0,
             ))
 
         except Exception as e:
@@ -179,6 +183,7 @@ def run_matrix(
 
             registros.append(MatrixRunRecord(
                 config, resolved.run_name, "failed", None, f"{type(e).__name__}: {e}", run_dir,
+                duracion_s=time.time() - t0,
             ))
             continue
 
@@ -227,6 +232,8 @@ def resumen_dataframe(registros: list) -> pd.DataFrame:
             "run_name": r.run_name,
             "status": r.status,
             "mape_promedio": r.mape_promedio,
+            "duracion_s": r.duracion_s,
+            "ventana": getattr(r.config, "ventana", None),
             "error": r.error,
             "run_dir": r.run_dir,
         })

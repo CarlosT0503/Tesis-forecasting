@@ -88,6 +88,12 @@ class ExperimentConfig:
     # historica hasta que el rerun se valide). None (default) -> RUN_NAME
     # identico al de siempre, cero impacto en ninguna corrida existente.
     sufijo_run_name: Optional[str] = None
+    # Ventana semanal de prueba ("S1".."S4", ver windows.py). None (default)
+    # -> comportamiento identico al de siempre: la prueba son las ultimas
+    # `forecast_horizon` filas de los datos y los resultados van a
+    # Pipeline_Resultados/. Con una ventana, el runner materializa los datos
+    # hasta el fin de esa semana y escribe en Pipeline_Resultados_Ventanas/<ventana>/.
+    ventana: Optional[str] = None
 
 
 def build_run_name(modelo: str, train_hours: int, forecast_horizon: int, exogenas: list, sufijo: Optional[str] = None) -> str:
@@ -138,7 +144,19 @@ def resolved_config_dict(
     exogenas: list,
 ) -> dict:
     """Config completa a persistir en config.json, con todos los defaults ya resueltos."""
+    extra_ventana = {}
+    if config.ventana:
+        from .windows import get_ventana
+
+        v = get_ventana(config.ventana)
+        extra_ventana = {
+            "ventana": v.id,
+            "test_start": str(v.test_start),
+            "test_end": str(v.test_end),
+        }
+
     return {
+        **extra_ventana,
         "modelo": config.modelo,
         "exogenas": exogenas,
         "train_hours": train_hours,

@@ -9,7 +9,15 @@ runner exige montar Drive ANTES de crear cualquier carpeta de resultados, asi
 que el problema que la celda 51 corregia no vuelve a ocurrir.
 """
 
+import os
+
 BASE_DIR = "/content/drive/MyDrive/Pipeline_Resultados"
+
+# Resultados de la extension a cuatro semanas de prueba: una subcarpeta por
+# ventana (S1..S4), separada de Pipeline_Resultados/ para no mezclar ni pisar
+# nada de la semana original (y con ello cada estudio Optuna, que vive dentro
+# de la carpeta de la corrida, queda tambien separado por semana).
+BASE_DIR_VENTANAS = "/content/drive/MyDrive/Pipeline_Resultados_Ventanas"
 
 
 def mount_drive() -> bool:
@@ -31,3 +39,8 @@ def mount_drive() -> bool:
 def resolve_base_dir() -> str:
     """Carpeta raiz de resultados, la misma que usaba el pipeline legacy."""
     return BASE_DIR
+
+
+def resolve_ventanas_base_dir(ventana_id: str) -> str:
+    """Carpeta de resultados de una ventana semanal (S1..S4)."""
+    return os.path.join(BASE_DIR_VENTANAS, ventana_id)
