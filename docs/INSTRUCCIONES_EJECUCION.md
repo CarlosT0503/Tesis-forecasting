@@ -22,13 +22,15 @@ El cuaderno solo lanza lo marcado `colab`; el script local solo lo marcado `loca
 
 ## PC
 
-Los procesos ya estan corriendo en segundo plano (SARIMAX por semana). Si se apaga la PC:
+Procesos en segundo plano (no hace falta lanzarlos de nuevo salvo que se apague la PC):
 
-```bash
-python scripts/run_local_estadisticos.py --ventanas S4 S1 S2 S3 --niveles T1 T3 --modelos sarimax
-```
+| Proceso | Que hace | Reanudar si se interrumpe |
+|---|---|---|
+| SARIMAX T1 (uno por semana) | `scripts/run_local_estadisticos.py --ventanas <S#> --modelos sarimax` | mismo comando |
+| SARIMAX T3 (cadenas por semana) | arrancan solos al terminar T1 de su semana | `python scripts/run_local_estadisticos.py --ventanas S4 S1 S2 S3 --niveles T3 --modelos sarimax` |
+| XGBoost y LightGBM (T1 y luego T3) | `powershell -File scripts\lanzar_arboles_local.ps1` (usa el entorno aislado `.venv_local`) | mismo comando |
 
-reanuda desde la ultima region guardada (sin repetir lo completo).
+Los scripts nuevos limitan BLAS/OpenMP a **un hilo por proceso** para que varios procesos no se estorben. `.venv_local/` es un entorno aislado (pandas 2.2.3, numpy 2.2.3, statsmodels 0.14.5, scikit-learn 1.6.1, optuna 5.0.0, xgboost 3.4.1, lightgbm 4.7.0): no toca el Python principal.
 
 ## Copiar resultados de la PC a Drive
 

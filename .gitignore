@@ -6,3 +6,4 @@ __pycache__/
 datos_locales/
 resultados_locales/
 series_dashboard.csv
+.venv_local/

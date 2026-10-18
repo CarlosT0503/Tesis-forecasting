@@ -172,9 +172,13 @@ replican las de las Fases 1A/1B/2/3/4 de `run_matrix.ipynb`.
 **Total: 54 por semana, 216 en las cuatro** (eran 51/204 antes de incluir los tres
 baselines). El detalle esta en `docs/plan_corridas_ventanas.csv`.
 
-Los modelos sin TensorFlow/Optuna (naive, naive_trend, naive_trend_seasonal, ar,
-ar_resid_trend_seasonal, sarimax) se pueden correr localmente con
-`scripts/run_local_estadisticos.py`; el resto, en Colab.
+Reparto de ejecucion (sin duplicados; columna `ejecuta_en` del plan): la **PC** corre
+los modelos sin redes neuronales (naive, naive_trend, naive_trend_seasonal, ar,
+ar_resid_trend_seasonal, sarimax, xgboost, lightgbm; 104 corridas) con
+`scripts/run_local_estadisticos.py`; **Colab** corre las cuatro redes (fcnn,
+lstm_resid, lstm_direct, ensemble_stl; 112 corridas). La PC es una i5-1035G1 de 4
+nucleos / 8 hilos, 16 GB de RAM y sin GPU NVIDIA, por eso las redes van a Colab
+(GPU). Ver `docs/INSTRUCCIONES_EJECUCION.md`.
 
 ## Salida consolidada
 
