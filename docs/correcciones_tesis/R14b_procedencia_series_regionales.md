@@ -1,3 +1,5 @@
+> **SUPERADO** por `R14_cierre_procedencia_y_procesamiento.md` (2026-10-18): H15 (BCA) y H14 (liquidaciones) resueltos; el 11.6 % de coincidencia de BCA era un artefacto de filtrar solo por `Area`.
+
 # R14 (complemento) — Procedencia, longitud y cobertura de las series regionales de demanda
 
 | Campo | Contenido |
