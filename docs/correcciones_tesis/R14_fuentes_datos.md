@@ -5,7 +5,7 @@
 | **Observación que resuelve** | R14 (Roberto, nota amarilla al inicio del Cap. 2): *"Primero explica de dónde sacaste los datos, qué fuentes había, limitantes."* |
 | **Estado** | Redacción preparada (2026-10-17). **No integrada** en `tesis.tex` ni en el PDF vigente. |
 | **Ubicación propuesta** | Capítulo 2 (*Generación Eléctrica en México*): nueva **Sección 2.1 "Fuentes de información"**, antes del párrafo actual "Este capítulo inicia con un análisis descriptivo…" (que pasaría a 2.2). Referencia cruzada desde §5.1.1 *Configuración experimental* (una frase: "Los datos se describen en la Sección 2.1."). |
-| **Referencias** | [20] CENACE (ya en la bibliografía) · [21] SIE/SENER (ya en la bibliografía) · **[24] INEGI, IGAE (nueva, por completar)** · **[25] fuente de la serie de temperatura (por confirmar)**. |
+| **Referencias** | [31] CENACE, *Estimación de la Demanda Real* (nueva; la [20] existente es otra página) · [21] SIE/SENER (ya en la bibliografía) · **[24] INEGI, IGAE (nueva, por completar)** · **[25] fuente de la serie de temperatura (por confirmar)**. |
 | **Archivo LaTeX equivalente** | `R14_fuentes_datos.tex` (misma redacción, listo para pegar; usa `\cite{CENACE}` y `\cite{SIE}`, claves existentes). |
 | **Relacionadas, NO adelantadas** | R15 (definir generación y consumo) y R16 (contexto de México) irán después en 2.2 y 2.3. |
 
@@ -23,7 +23,7 @@ Los datos de esta tesis proceden de fuentes institucionales de acceso público. 
 
 **Datos por entidad federativa.** El consumo y la generación de energía eléctrica por entidad federativa se obtuvieron del Sistema de Información Energética (SIE) de la Secretaría de Energía [21]. El consumo se publica con frecuencia anual, en gigawatts-hora, y el archivo utilizado abarca de 2006 a 2024; sus cifras de 2024 están actualizadas solo hasta junio, de modo que ese año está incompleto y no es comparable con los años completos. La generación corresponde a la generación bruta de la Comisión Federal de Electricidad (CFE) más los Productores Independientes de Energía (PIE), se publica con frecuencia mensual, en megawatts-hora, y el archivo descargado cubre de enero de 2002 a marzo de 2025; el análisis de este capítulo emplea los registros hasta diciembre de 2024 **[VERIFICAR]**. Por su denominación, esta serie se limita a la generación de CFE y de los PIE.
 
-**Datos regionales horarios.** Las series que se pronostican y las variables de generación, importación y exportación proceden del Centro Nacional de Control de Energía (CENACE) [20], organismo que opera el Sistema Eléctrico Nacional. La información se organiza por región de control: Baja California (BCA), Central (CEN), Noreste (NES), Noroeste (NOR), Norte (NTE), Occidental (OCC), Oriental (ORI) y Peninsular (PEN). Baja California Sur no se incluyó porque no se encontró una serie de demanda reciente para esa región. Para cada región y cada hora se dispone de la estimación de demanda por balance, la generación y los flujos reales de importación y de exportación, todos en megawatts-hora. La variable que se pronostica es la estimación de demanda por balance; se trata, por tanto, de una estimación y no de una medición directa del consumo.
+**Datos regionales horarios.** Las series que se pronostican y las variables de generación, importación y exportación proceden del Centro Nacional de Control de Energía (CENACE) [31], organismo que opera el Sistema Eléctrico Nacional. La información se organiza por región de control: Baja California (BCA), Central (CEN), Noreste (NES), Noroeste (NOR), Norte (NTE), Occidental (OCC), Oriental (ORI) y Peninsular (PEN). Baja California Sur no se incluyó porque no se encontró una serie de demanda reciente para esa región. Para cada región y cada hora se dispone de la estimación de demanda por balance, la generación y los flujos reales de importación y de exportación, todos en megawatts-hora. La variable que se pronostica es la estimación de demanda por balance; se trata, por tanto, de una estimación y no de una medición directa del consumo.
 
 **Variables exógenas económicas y climáticas.** La actividad económica se representó con el Indicador Global de la Actividad Económica (IGAE) del Instituto Nacional de Estadística y Geografía (INEGI) [24]: un índice mensual de volumen físico con base 2018 = 100, de cobertura nacional, disponible para el total y para las actividades primarias, secundarias y terciarias. La temperatura se tomó de una serie de temperatura promedio de frecuencia mensual [25] **[VERIFICAR fuente y unidad]**. El archivo del IGAE incluye, después de cada año, una columna con el total anual; esas columnas se eliminaron para conservar únicamente los valores mensuales.
 
@@ -37,9 +37,9 @@ La Tabla 2.1 resume las series utilizadas. Las series regionales de CENACE abarc
 |---|---|---|---|---|
 | Consumo por entidad federativa | SIE-SENER [21] | Anual | 2006–2024 (2024 hasta junio) | Análisis descriptivo |
 | Generación bruta por entidad federativa | SIE-SENER [21], con información de CFE | Mensual | Ene 2002 – mar 2025 | Análisis descriptivo |
-| Demanda (estimación por balance) por región | CENACE [20] | Horaria | 2019-01-01 a 2026-05-23 | Variable pronosticada |
-| Generación por región | CENACE [20] | Horaria | 2019-01-01 a 2026-05-23 | Variable exógena |
-| Importación y exportación por región | CENACE [20] | Horaria | Ver limitación (iv) | Variable exógena |
+| Demanda (estimación por balance) por región | CENACE [31] | Horaria | 2019-01-01 a 2026-05-23 | Variable pronosticada |
+| Generación por región | CENACE [31] | Horaria | 2019-01-01 a 2026-05-23 | Variable exógena |
+| Importación y exportación por región | CENACE [31] | Horaria | Ver limitación (iv) | Variable exógena |
 | IGAE (total y por actividad) | INEGI [24] | Mensual | Ene 1993 – mar 2026 (se usa desde ene 2019) | Variable exógena |
 | Temperatura promedio | [25] | Mensual | Ene 2002 – mar 2026 (se usa desde ene 2019) | Variable exógena |
 
