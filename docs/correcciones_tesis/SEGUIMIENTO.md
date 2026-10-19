@@ -23,7 +23,7 @@ Estados: **Pendiente** · **En preparación** · **Redacción preparada** · **I
 | R11 | Antecedentes: revisión extensa | Antecedentes | Cambio | Integrada en tesis | PDF Cap. 1, pp. 1–4 | Roberto decide si basta con 4 páginas. |
 | R12 | Estructura del trabajo y objetivos | Objetivos / estructura | Cambio | Pendiente (parcial) | Objetivos pp. xii–xiii; falta la descripción de capítulos | Escribir al final. |
 | R13 | Metodología general (pasos del trabajo) | Metodología | Cambio | Pendiente | — | Escribir al final. |
-| **R14** | **Fuentes de los datos, cobertura, limitaciones** | Metodología / antecedentes | Cambio | **Redacción preparada** | `R14_fuentes_datos.md` / `.tex` | Pendientes de verificar al pie del archivo (fuente de temperatura, ref. INEGI, MD5 en Drive, Imp/Exp, periodo del Cap. 2, 2024 incompleto). Inserción propuesta: nueva §2.1. |
+| **R14** | **Fuentes de los datos, cobertura, limitaciones** | Metodología / antecedentes | Cambio | **Redacción preparada** | `R14_fuentes_datos.md` / `.tex` | Pendientes de verificar al pie del archivo (fuente de temperatura, ref. INEGI, MD5 en Drive, Imp/Exp, periodo del Cap. 2, 2024 incompleto). Inserción propuesta: nueva §2.1. Complemento de procedencia/longitud/cobertura de las series regionales: `R14b_procedencia_series_regionales.md`. |
 | R15 | Qué es generación y qué es consumo | Antecedentes | Cambio | Pendiente | — | No adelantada. Depende de R14 y del término "demanda/consumo". |
 | R16 | Contexto de México (plantas, origen, importaciones) | Antecedentes | Cambio | Pendiente | — | No adelantada. |
 | R17 | Por qué importan las series de tiempo | Justificación | Cambio | Pendiente | PDF p. 9 | — |
