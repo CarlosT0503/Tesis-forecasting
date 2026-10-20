@@ -24,3 +24,9 @@ Orden sugerido en el Cap. 2: §2.1 Fuentes (R14 + `R14_fuentes_datos.md`) → §
 
 ## Actualización 2026-10-19 (R16 v2)
 R16 se amplió a cuatro secciones (§2.3–§2.6) conectadas con las Figuras 2.1–2.5; se recalcularon todas las cifras de las figuras desde los CSV del SIE. Hallazgos nuevos: H19 (Fig. 2.2 con datos escritos a mano), H20 (2024 incompleto leído como reducción), H21 (Fig. 2.5), H22 (títulos), H23 (numeración de referencias).
+
+## Actualización 2026-10-20
+- **H16** pasa a *Decidido*: Baja California Sur se presenta como delimitación del alcance (no como falta de datos); R14 y R16 reescritos así.
+- Figuras 2.1, 2.2, 2.4 y 2.5 regeneradas en `figuras_cap2/` (script `scripts/generar_figuras_cap2.py`); H19–H22 con figura lista, pendiente de revisión del autor.
+- R15: revisión de consistencia registrada al final del archivo (término "demanda"/"consumo", cobertura del consumo del SIE: H26). Título de la tesis sin cambios.
+- Se redactaron R12 y R13 (ver `SEGUIMIENTO.md`). Hallazgos nuevos: H24 (XGBoost sin tuning efectivo), H25 (erratas del PDF), H26.

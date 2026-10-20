@@ -41,7 +41,7 @@ Cambio de horario: las regiones del SIN lo tuvieron hasta 2022 (4 días de 23 h 
 
 **Corrección a lo dicho en `R14b`:** el 11.6 % de coincidencia de BCA era un artefacto de filtrar solo por `Area`; BCA **no** tiene una transformación adicional.
 
-**Consecuencia para BCS (hallazgo nuevo, H16):** la serie de Baja California Sur **sí existe** en los reportes desde 2020 (`Sistema = BCS`); el archivo `BCS_long.csv` disponible termina el 2020-06-15. La frase de la tesis "no se encontró una serie reciente de demanda para esa región" probablemente se debe a este etiquetado (verificable, no demostrado como causa).
+**Consecuencia para BCS (hallazgo nuevo, H16):** la serie de Baja California Sur **sí existe** en los reportes desde 2020 (`Sistema = BCS`); el archivo `BCS_long.csv` disponible termina el 2020-06-15. Decisión del autor (2026-10-20): su exclusión se presenta como **delimitación del alcance** (el estudio comprende las siete regiones del SIN y el sistema de Baja California; Baja California Sur es un sistema separado que puede considerarse como extensión futura), **no** como falta de datos. La frase actual de la tesis ("no se encontró una serie reciente de demanda para esa región") debe reemplazarse en §0.3.1 y §5.1.1. Los experimentos no se modifican.
 
 ## 4. H14 resuelto — versiones de liquidación
 
@@ -99,7 +99,7 @@ Una comprobación por muestra de este procedimiento está en `scripts/verificar_
 - **Pendiente:** el script original de construcción no se encontró; las operaciones "inferidas" arriba no se pueden afirmar como código recuperado.
 - **Verificación por muestra:** la regla de versión y la ecuación de balance se comprobaron en 1 de cada 5 días y en los 72 días de formato alterno (no en los 2 700); la conclusión es consistente, pero no exhaustiva.
 - Las semanas de prueba son liquidación 0 (preliminar): declarar como limitación.
-- BCS no se modeló aunque existe en los reportes desde 2020 (H16): decidir si se menciona o se amplía.
+- BCS: resuelto como delimitación del alcance (H16); solo queda reemplazar la frase en la tesis al integrar.
 - Las columnas de flujo real de 2019 (importación/exportación) no se conservaron desde 2020 (H3).
 
 ## 7. Párrafo académico definitivo (sustituye al de `R14b`)

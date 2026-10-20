@@ -132,6 +132,7 @@ def main():
     ap.add_argument("--max-workers", type=int, default=3)
     ap.add_argument("--max-sarimax-con-arboles", type=int, default=2)
     ap.add_argument("--min-ram-gb", type=float, default=1.2)
+    ap.add_argument("--ram-margen-worker-gb", type=float, default=0.8)
     ap.add_argument("--min-bateria", type=int, default=30)
     ap.add_argument("--python", default=os.path.join(RAIZ, ".venv_local", "Scripts", "python.exe"))
     args = ap.parse_args()
@@ -186,6 +187,11 @@ def main():
         tope_sar = args.max_sarimax_con_arboles if (pendientes_arboles or any(c[0] == "arboles" for c in en_curso)) else args.max_workers
 
         while sano and len(en_curso) < args.max_workers:
+            # cada worker adicional exige RAM libre de sobra (el suelo + el margen de un worker),
+            # medida despues de que arranco el anterior; asi no se fuerza un tercer worker sin memoria
+            ram_ahora = ram_libre_gb()
+            if len(en_curso) >= 1 and ram_ahora < args.min_ram_gb + args.ram_margen_worker_gb:
+                break
             elegido = None
             for clave in cola:
                 if clave in hechos or clave in en_curso:

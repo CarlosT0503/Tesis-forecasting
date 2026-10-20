@@ -29,7 +29,7 @@ $$D_{r,h} \;=\; G_{r,h} \;+\; I_{r,h} \;-\; E_{r,h} \;+\; N_{r,h}$$
 
 donde *D* es la `Estimacion de Demanda por Balance (MWh)`, *G* la generación, *I* la importación, *E* la exportación y *N* el intercambio neto entre gerencias (positivo si la región recibe energía de otras; en Baja California, que no pertenece al SIN, el reporte no trae este término y se toma *N* = 0). Dentro del SIN, *N* suma cero en cada hora, de modo que a escala del SIN *D* = *G* + *I* − *E*.
 
-**No son magnitudes equivalentes.** La demanda de una región no es su generación: depende de cuánta energía importa o recibe de otras regiones. En 2023, por ejemplo, la región Central generó 36.5 TWh pero tuvo una demanda de 58.6 TWh, mientras que la región Noreste generó 93.4 TWh y demandó 61.8 TWh. Tampoco es el consumo final: la demanda por balance incluye las pérdidas de la red, y el consumo final se mide como energía vendida a usuarios; en 2024 la suma de la demanda de las ocho regiones del estudio fue de 348.5 TWh, frente a un consumo final de 304.0 TWh en el SEN [30], cifras del mismo orden una vez consideradas las pérdidas (12.3 %), pero que no son idénticas porque difieren su cobertura (el estudio excluye Baja California Sur y Mulegé) y su definición.
+**No son magnitudes equivalentes.** La demanda de una región no es su generación: depende de cuánta energía importa o recibe de otras regiones. En 2023, por ejemplo, la región Central generó 36.5 TWh pero tuvo una demanda de 58.6 TWh, mientras que la región Noreste generó 93.4 TWh y demandó 61.8 TWh. Tampoco es el consumo final: la demanda por balance incluye las pérdidas de la red, y el consumo final se mide como energía vendida a usuarios; en 2024 la suma de la demanda de las ocho regiones del estudio fue de 348.5 TWh, frente a un consumo final de 304.0 TWh en el SEN [30], cifras del mismo orden una vez consideradas las pérdidas (12.3 %), pero que no son idénticas porque difieren su cobertura (el estudio no comprende Baja California Sur ni Mulegé, por delimitación del alcance) y su definición.
 
 ## Verificación numérica de la ecuación (contra los reportes originales)
 
@@ -56,3 +56,14 @@ Totales anuales 2023 de las ocho regiones del estudio (suma de las series proces
 
 - **[31]** CENACE, *Estimación de la Demanda Real*, Sistema de Información del Mercado. <https://www.cenace.gob.mx/Paginas/SIM/Reportes/EstimacionDemandaReal.aspx> (consultada el 2026-10-18). Es una entrada **nueva**: la [20] existente es otra página de CENACE (*Energía Generada por Tipo de Tecnología*).
 - **[30]** Secretaría de Energía, *ACUERDO por el que la Secretaría de Energía emite el Plan de Desarrollo del Sector Eléctrico* (con el Plan de Desarrollo del Sector Eléctrico 2025-2039), firmado el 14 de octubre de 2025, Diario Oficial de la Federación. <https://sidof.segob.gob.mx/notas/docFuente/5770297> (consultada el 2026-10-18). Definiciones de consumo final, consumo bruto, pérdidas y demanda (MWh/h); cifras de 2024.
+
+## Revisión de consistencia (2026-10-20)
+
+Se revisaron los usos de "generación", "consumo" y "demanda" en R14, R15 y R16. **No se cambió el título de la tesis** (decisión del autor pendiente).
+
+| # | Hallazgo | Acción |
+|---|---|---|
+| 1 | **Término de la variable pronosticada.** El título dice "Consumo Eléctrico"; la Introducción (§0.3.1) dice "demanda eléctrica" y R14/R15 usan "demanda real (por balance)". El Cap. 2 usa "consumo" para la serie anual del SIE por entidad. Son tres magnitudes distintas con dos palabras. | Mantener "demanda" para la serie horaria pronosticada y "consumo" solo para la serie anual del SIE. Decidir con el autor si el título se ajusta; **no tocado**. |
+| 2 | **Cobertura del "consumo" del SIE sin verificar.** La tabla del SIE da 222.9 TWh de consumo nacional en 2023; SENER [30] da 304.0 TWh de *consumo final* en 2024. Una diferencia de ≈ 36 % no se explica por el cambio de año (el consumo del SIE creció en promedio 1.4 % anual entre 2006 y 2023), así que las dos series no miden lo mismo o no cubren lo mismo. No se pudo comprobar qué incluye la tabla del SIE (su fuente es el Anexo Estadístico del Informe de Gobierno). | No equiparar el consumo del SIE con el consumo final de SENER. Ver H26. En R16 §2.4 se ajustó la frase que los igualaba. |
+| 3 | **BCS y Mulegé.** R15 decía "el estudio excluye Baja California Sur y Mulegé" (sugería una exclusión técnica). | Reformulado como delimitación del alcance (H16). |
+| 4 | **Comparación demanda de las ocho regiones vs consumo final nacional.** La cifra 348.5 TWh (demanda 2024, ocho regiones) frente a 304.0 TWh (consumo final, SEN) se explica en parte por pérdidas (12.3 %), pero el cálculo no cierra exactamente; el texto ya dice "no son idénticas". | Sin cambio; no afirmar que concilian. |
