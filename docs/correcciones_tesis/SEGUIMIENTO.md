@@ -6,7 +6,7 @@ Estados: **Pendiente** · **En preparación** · **Redacción preparada** · **I
 - *Verificada* = Roberto (o el autor) confirmó que la observación quedó resuelta. **Ninguna lo está todavía.**
 - Las correcciones preparadas viven en archivos independientes de esta carpeta; **`tesis.tex` y el PDF no se han tocado.**
 
-Última actualización: 2026-10-20. Hallazgos que afectan a varias observaciones: ver `HALLAZGOS_PENDIENTES.md` (H1–H26).
+Última actualización: 2026-10-21. Hallazgos que afectan a varias observaciones: ver `HALLAZGOS_PENDIENTES.md` (H1–H26).
 
 | # | Observación (resumen) | Categoría | Tipo | Estado | Archivo / evidencia | Notas y dependencias |
 |---|---|---|---|---|---|---|
@@ -51,3 +51,4 @@ Estados: **Pendiente** · **En preparación** · **Redacción preparada** · **I
 - 2026-10-19: R16 reescrito (versión 2) y vinculado a las Figs. 2.1–2.5; hallazgos H19–H23.
 - 2026-10-18: R14 cerrado (BCA, liquidaciones, procesamiento); R15 y R16 pasan a *Redacción preparada*. Resumen: `RESUMEN_CIERRE_R14_R15_R16.md`.
 - 2026-10-20: R12 y R13 pasan a *Redacción preparada*; R14/R16 corregidos con la delimitación de alcance de Baja California Sur (H16); figuras 2.1, 2.2, 2.4 y 2.5 regeneradas; revisión de consistencia de R15; hallazgos H24 (XGBoost sin tuning efectivo), H25 (erratas) y H26 (cobertura del consumo SIE).
+- 2026-10-21: **H26 explicado** (`H26_discrepancia_SIE_SENER.md`): la serie por entidad del SIE son las ventas de CFE Suministro Básico (coinciden los totales 2019–2023 y la variación de las 32 entidades en 2023), no el consumo final del SEN. R15 y R16 anotados; nuevas referencias [33] (SENER, Informe Pormenorizado 2023) y [34] (CFE, reporte 4T 2023). Pendiente de decisión del autor: terminología y títulos de las Figs. 2.1, 2.2 y 2.5. STL (Cap. 3) y erratas (H25) quedan en segundo plano hasta estabilizar Colab.
