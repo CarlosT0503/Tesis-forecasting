@@ -82,6 +82,7 @@ from statsmodels.tsa.seasonal import STL
 
 from ..checkpoint import cargar_checkpoint_regiones, precargar_en_acumulador
 from ..atomic_io import escribir_csv_atomico
+from ..errores_log import registrar_error
 
 # =========================================================
 # CONFIG POR DEFECTO (identica a la celda 64)
@@ -778,6 +779,7 @@ def evaluar_region(region, df, exog_region, exog_names, train_hours, forecast_ho
 
     except Exception as e:
         print(f"Error FCNN multivariada en {nombre_serie}: {type(e).__name__}: {e}")
+        registrar_error(nombre_serie, e)
 
     # 2. STL + FCNN MULTIVARIADA SOBRE RESIDUOS
     try:
@@ -825,6 +827,7 @@ def evaluar_region(region, df, exog_region, exog_names, train_hours, forecast_ho
 
     except Exception as e:
         print(f"Error STL + FCNN multivariada sobre residuos en {nombre_serie}: {type(e).__name__}: {e}")
+        registrar_error(nombre_serie, e)
 
     if huvo_resultado:
         resultados.series.append({
@@ -903,6 +906,7 @@ def run(
 
         except Exception as e:
             print(f"Error general en {region}: {type(e).__name__}: {e}")
+            registrar_error(region, e)
 
         print("\nGuardando avance...")
         _guardar_avance_csv(resultados, output_dir)

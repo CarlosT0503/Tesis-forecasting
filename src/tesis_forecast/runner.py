@@ -19,7 +19,7 @@ import traceback
 from dataclasses import dataclass, field
 from typing import Optional
 
-from . import io_drive, windows
+from . import errores_log, io_drive, windows
 from .atomic_io import escribir_csv_atomico
 from .config import ExperimentConfig, build_run_name, resolved_config_dict
 from .data.exogenas import cargar_exogenas_horarias
@@ -432,6 +432,16 @@ def run_experiment(
                 archivos["config_usada"] = os.path.join(run_dir, "config_usada.csv")
 
             archivos["log"] = log_path
+
+            # Los modelos tragan el error de cada region para seguir con la siguiente; si TODAS fallan, `run()` devuelve
+            # tablas vacias y antes la corrida figuraba como completada. Una corrida sin ninguna region con metricas
+            # (ni nuevas ni heredadas del checkpoint) es una corrida fallida. Los CSV ya quedaron guardados.
+            if len(metricas_df) == 0:
+                sys.stdout.flush()
+                resumen = errores_log.resumir(errores_log.extraer_errores(log_path))
+                raise RuntimeError(
+                    "Ninguna region produjo metricas (0/%d). %s (ver %s)" % (
+                        len(REGIONS_ALL), resumen["texto"] or "Sin errores registrados: revisar regiones omitidas o series insuficientes", log_path))
 
             print("\nExperimento completado.")
             for nombre_archivo, ruta in archivos.items():

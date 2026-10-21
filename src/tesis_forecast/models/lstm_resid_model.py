@@ -130,6 +130,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 
 from ..checkpoint import cargar_checkpoint_regiones, precargar_en_acumulador
 from ..atomic_io import escribir_csv_atomico
+from ..errores_log import registrar_error
 
 COL_FECHA = "fecha"
 COL_HORA = "Hora"
@@ -776,6 +777,7 @@ def evaluar_region(region, df, exogenas_globales, exog_cols, train_hours, foreca
 
     except Exception as e:
         print(f"Error en {nombre_serie}: {type(e).__name__}: {e}")
+        registrar_error(nombre_serie, e)
 
     finally:
         tf.keras.backend.clear_session()

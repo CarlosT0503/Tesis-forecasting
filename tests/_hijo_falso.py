@@ -14,6 +14,7 @@ cual va):
   err        ValueError y sale con 1
   dormir     no termina (para probar el timeout)
   incompleta sale con 0 pero deja solo 5 regiones
+  rc3        sale con 3 (corrida incompleta); copia la plantilla JSON (5.o argumento) como resumen
 """
 
 import json
@@ -36,6 +37,7 @@ def escribir(run_dir, n):
 
 def main():
     run_dir, secuencia, contador, resultado = sys.argv[1:5]
+    plantilla = sys.argv[5] if len(sys.argv) > 5 else None
     modos = secuencia.split(",")
     n = int(open(contador).read()) if os.path.exists(contador) else 0
     open(contador, "w").write(str(n + 1))
@@ -67,6 +69,11 @@ def main():
         with open(contador + ".pid", "a") as f:
             f.write(str(os.getpid()) + " ")
         time.sleep(600)
+    if modo == "rc3":  # como el hijo real cuando termina sin error pero la corrida quedo incompleta
+        if plantilla:
+            with open(plantilla, encoding="utf-8") as f, open(resultado, "w", encoding="utf-8") as g:
+                g.write(f.read())
+        return 3
     if modo == "incompleta":
         escribir(run_dir, 5)
         return 0

@@ -98,6 +98,10 @@ def main():
             check(True, "lote invalido -> ValueError")
 
         print("3. Subprocesos simulados")
+        # la clase de un SIGKILL depende de la RAM libre observada: se fija para que la prueba no dependa de la maquina
+        _snap = lambda pid=None, gpu=True: {"rss_proceso_mb": 0.0, "rss_hijos_mb": 0.0, "ram_disponible_gb": 0.5}
+        _parche_ram = mock.patch.object(ca.telemetria, "snapshot", side_effect=_snap)
+        _parche_ram.start()
         cfgs = [c for c in vt.construir_configs("T3", "S4") if c.modelo == "lstm_direct"]
         reg = os.path.join(vent, "_auditoria", "subprocesos_colab_T.csv")
 
@@ -179,6 +183,8 @@ def main():
                                         comando_hijo=cmd, sondeo_s=0.5, tmp_dir=os.path.join(tmp, "sub"), verbose=False)
         check(motivo is not None and len(regs) == 3, "con 3 fallos de RAM seguidos la cola se detiene (procesadas %d de %d)" % (len(regs), len(cola[0][2])))
         check(os.path.exists(os.path.join(vent, "_auditoria", "tiempos_colab_T.csv")), "los tiempos se guardan por configuracion")
+
+        _parche_ram.stop()
 
         print("5. Ejecucion REAL de extremo a extremo (script hijo + run_matrix + checkpoint), modelo naive, semana S4")
         if not os.path.isdir(DATOS) or os.environ.get("SIN_PRUEBA_REAL"):

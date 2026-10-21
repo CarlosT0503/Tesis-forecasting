@@ -7,6 +7,10 @@ salta lo completo, reanuda por region lo parcial y no cambia ningun hiperparamet
     python scripts/run_config_aislada.py --config-json cfg.json --resultado res.json --data-dir <DATA_DIR> \
         --base-ventanas <Pipeline_Resultados_Ventanas>
 
+Codigos de salida: 0 = corrida completa (o ya estaba completa); 1 = fallo (excepcion, o ninguna region produjo metricas);
+3 = el proceso termino sin error pero la corrida NO quedo con las 8 regiones (algunas regiones fallaron y el modelo siguio).
+El JSON de resumen trae `errores_region` (errores por region que los modelos registraron en log.txt) y `regiones_ok`.
+
 `--stubs-pesados` sustituye TensorFlow/Optuna/XGBoost/LightGBM por stubs: SOLO para pruebas locales con modelos que
 no los usan (nunca en Colab: con stubs una red neuronal "entrenaria" sin entrenar).
 """
@@ -79,11 +83,12 @@ def main():
                  "duracion_s": None, "pico_rss_mb": None}
     codigo = 1
     try:
-        from tesis_forecast import io_drive
+        from tesis_forecast import errores_log, io_drive
         from tesis_forecast.atomic_io import limpiar_temporales
         from tesis_forecast.config import ExperimentConfig
         from tesis_forecast.matrix import run_matrix
         from tesis_forecast.runner import resolve_run
+        from tesis_forecast.validator import validar_resultado
 
         if args.base_ventanas:
             io_drive.BASE_DIR_VENTANAS = args.base_ventanas
@@ -98,7 +103,17 @@ def main():
 
         registro = run_matrix([config], data_dir=args.data_dir, mount_drive=False)[0]
         resultado.update(status=registro.status, mape_promedio=registro.mape_promedio, error=registro.error)
-        codigo = 0 if registro.status in ("completed", "skipped_ya_completo") else 1
+        reporte = validar_resultado(resolved.run_dir)
+        resultado["regiones_ok"] = len(reporte.regiones_encontradas)
+        resultado["errores_region"] = errores_log.resumir(errores_log.extraer_errores(os.path.join(resolved.run_dir, "log.txt")))
+        if registro.status not in ("completed", "skipped_ya_completo"):
+            codigo = 1
+        elif reporte.es_completo:
+            codigo = 0
+        else:  # termino sin excepcion pero faltan regiones: NO es una corrida completada
+            codigo = 3
+            resultado["status"] = "incompleta"
+            resultado["error"] = "La corrida termino con %d/8 regiones. %s" % (resultado["regiones_ok"], resultado["errores_region"]["texto"])
     except BaseException as e:  # incluye MemoryError y KeyboardInterrupt
         resultado["error"] = "%s: %s" % (type(e).__name__, e)
         resultado["traceback_cola"] = traceback.format_exc()[-4000:]

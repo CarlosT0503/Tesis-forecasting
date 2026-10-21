@@ -62,3 +62,22 @@ Nota: un SIGKILL sin dato de RAM se clasifica como `ram_sistema` (lo más probab
 | `test_notebook_ventanas.py` | El notebook coincide con sus celdas, las celdas 3 y 4 se ejecutan (sesiones A y B) |
 
 Limitación: las redes neuronales no se pudieron ejecutar localmente (la PC no tiene TensorFlow ni GPU); lo que se probó son la lógica de guardado, reanudación, aislamiento y clasificación, no el entrenamiento en sí. La primera ejecución en Colab es, por tanto, la prueba final: conviene empezar con `LOTE = "T2"`.
+
+## Actualización 2026-10-21: errores por región visibles y corridas sin resultados = fallidas
+
+**Problema detectado en Colab (Ensemble STL, S4 y S1, T2):** rc=0 y 0/8 regiones. Causa del *síntoma*: los modelos neuronales envuelven cada región en un `try/except Exception` que solo imprimía una línea y seguía; si todas fallaban, `run()` devolvía tablas vacías, `run_experiment` escribía CSV vacíos y registraba la corrida como `completed`. La excepción concreta se identifica con la traza (ver abajo); el cálculo no se ha tocado.
+
+Cambios (no alteran cálculos, hiperparámetros ni resultados existentes):
+
+| Cambio | Dónde |
+|---|---|
+| Cada error tragado imprime una marca `@@ERROR_REGION@@ <región> \| <Tipo> \| <mensaje>`, la **traza completa** y `@@FIN_ERROR@@` (stdout, que el runner copia a `log.txt`). Los mensajes anteriores se conservan | `errores_log.py`; `ensemble_stl.py`, `fcnn_model.py` (3 puntos), `lstm_direct.py`, `lstm_resid_model.py` |
+| Si **ninguna** región produjo métricas (ni nuevas ni heredadas del checkpoint) la corrida **falla** (`RuntimeError` con el primer error real); los CSV quedan guardados | `runner.py` |
+| El subproceso termina con **código 3** si acabó sin excepción pero la corrida no tiene las 8 regiones, y su JSON trae `errores_region` y `regiones_ok` | `scripts/run_config_aislada.py` |
+| El orquestador usa esos errores: el mensaje de `subprocesos_colab_<A\|B>.csv` cita la excepción real; un `ResourceExhaustedError` o `MemoryError` tragado por el modelo se clasifica como `gpu_memoria` / `ram_python` (no como `incompleta`); si todas las regiones fallan con **el mismo error** y sin avanzar, se abandona tras **1** intento (fallo determinista) | `colab_aislado.py` |
+
+Sin cambios de esquema: el CSV de intentos conserva sus columnas (el detalle va en `mensaje`).
+
+**Dónde ver el error de una corrida:** `Pipeline_Resultados_Ventanas/<S#>/<RUN_NAME>/log.txt` → `!grep -n -A25 "@@ERROR_REGION@@" "<ruta>/log.txt" | head -80`. Las ejecuciones se identifican por la línea `Experimento: <RUN_NAME>`; el orquestador solo cuenta los errores de la ejecución actual.
+
+Pruebas: `tests/test_errores_log.py` (marca y traza, los 4 modelos, runner fallido/completado, rc=3, GPU/RAM tragados, abandono determinista, falla real del subproceso) y regresión de `test_ejecucion_aislada.py` (reanudación real con el modelo naive), `test_checkpoint.py`, `test_notebook_ventanas.py`, etc.

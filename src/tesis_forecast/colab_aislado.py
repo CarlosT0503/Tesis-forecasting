@@ -278,16 +278,21 @@ def ejecutar_config_aislada(
         despues = _regiones_ok(run_dir)
         completa = os.path.isdir(run_dir) and validar_resultado(run_dir).es_completo
 
+        err = resultado.get("errores_region") or {}
+        primero = err.get("primero") or {}
+        texto_err = " ".join(str(primero.get(k, "")) for k in ("tipo", "mensaje", "traza_cola"))
         if rc == 0 and completa:
             clase = None
             ultimo_msg = ""
-        elif rc == 0:
-            clase = INCOMPLETA
-            ultimo_msg = "el subproceso termino pero la corrida tiene %d/8 regiones" % despues
+        elif rc in (0, 3):  # termino sin morir pero la corrida no tiene las 8 regiones
+            # un error tragado por el modelo puede ser de memoria: se distingue para no esconder un fallo de GPU/RAM
+            causa = clasificar_fallo(1, texto_err)
+            clase = causa if causa in (GPU_MEMORIA, RAM_PYTHON) else INCOMPLETA
+            ultimo_msg = (err.get("texto") or "el subproceso termino pero la corrida tiene %d/8 regiones" % despues)[:400]
         else:
-            clase = clasificar_fallo(rc, texto, ram_min, timeout)
+            clase = clasificar_fallo(rc, texto + " " + texto_err, ram_min, timeout)
             lineas = [l for l in texto.strip().splitlines() if l.strip()]
-            ultimo_msg = (lineas[-1] if lineas else "sin salida")[:300]
+            ultimo_msg = (err.get("texto") or resultado.get("error") or (lineas[-1] if lineas else "sin salida"))[:400]
 
         registrar_intento(ruta_registro, {
             "registrado_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -300,6 +305,10 @@ def ejecutar_config_aislada(
         if verbose:
             print("      -> %s | rc=%s | regiones %d->%d | %.0f s | pico %.0f MB%s" % (
                 clase or "OK", rc, antes, despues, time.time() - t0, pico_mb, (" | " + ultimo_msg) if ultimo_msg else ""))
+            if clase is not None and primero.get("traza_cola"):
+                print("      traza del primer error (completa en %s/log.txt):" % run_dir)
+                for linea_traza in str(primero["traza_cola"]).splitlines():
+                    print("        " + linea_traza)
 
         CONTEXTO_ACTUAL["txt"] = ""
         if clase is None:
@@ -307,7 +316,13 @@ def ejecutar_config_aislada(
                                    duracion_s=time.time() - t_total), None
 
         sin_progreso = 0 if despues > antes else sin_progreso + 1
+        # fallo determinista: sin avanzar y varias regiones con exactamente el mismo error -> repetir no sirve
+        determinista = despues == antes and err.get("n", 0) >= 2 and err.get("mensajes_unicos") == 1
         antes = despues
+        if determinista:
+            if verbose:
+                print("      las %d regiones fallaron con el mismo error y sin avanzar: se abandona sin reintentar (fallo determinista)." % err["n"])
+            break
         if sin_progreso >= max_sin_progreso:
             if verbose:
                 print("      %d intentos seguidos sin avanzar: se abandona esta configuracion (se puede relanzar despues)." % sin_progreso)

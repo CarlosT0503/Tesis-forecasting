@@ -55,6 +55,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 
 from ..checkpoint import cargar_checkpoint_regiones, precargar_en_acumulador
 from ..atomic_io import escribir_csv_atomico
+from ..errores_log import registrar_error
 
 # =========================================================
 # CONFIG POR DEFECTO (identica a la celda 58)
@@ -795,6 +796,7 @@ def run(
 
         except Exception as e:
             print(f"Error {region}: {type(e).__name__}: {e}")
+            registrar_error(region, e)
 
         finally:
             cleanup()
