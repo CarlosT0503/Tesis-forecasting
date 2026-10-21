@@ -10,9 +10,9 @@ Plan completo: **216 corridas (54 por semana)**, ver `docs/plan_corridas_ventana
 
 ## Que ejecutar (las celdas de codigo se numeran 1 a 7, en orden)
 1. Entorno de ejecucion: **GPU (T4)**.
-2. **Celda 1 - Setup** (autoriza Drive).
-3. **Celda 2 - Auditoria** (opcional, 1 minuto, solo lectura) y **Celda 3 - Estado**.
-4. **Celda 4 - Lanzamiento** con `SESION = "A"` y dejarla corriendo. Si quieres una segunda pestana, `SESION = "B"`. **Nunca la misma sesion en dos pestanas.**
+2. **Celda 1 - Setup** (autoriza Drive). Si pide reiniciar, hazlo y vuelve a ejecutarla.
+3. **Celda 3 - Progreso** (solo lectura): cuantas de las 112 estan completas y cuales faltan. **Celda 2 - Auditoria** es opcional (1 minuto).
+4. **Celda 4 - Lanzamiento** con `SESION = "A"` y dejarla corriendo. En una segunda pestana, `SESION = "B"`. **Nunca la misma sesion en dos pestanas.** Si la RAM falla, usa lotes mas chicos (`LOTE`, ver la celda).
 5. Mas tarde: **Celdas 5 y 6** (comparar S4 con los originales) y **Celda 7** (consolidado).
 
-Si se corta: vuelve a ejecutar las celdas 1 y 4. No hay que borrar nada.
+**Para reanudar** (corte, desconexion o falta de RAM): *Entorno de ejecucion > Reiniciar sesion*, celda 1 y celda 4 con la misma `SESION`. No hay que borrar nada ni repetir regiones: lo completo se salta y lo parcial continua.

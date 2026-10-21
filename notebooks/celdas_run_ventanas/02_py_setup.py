@@ -33,4 +33,9 @@ print("Version del repositorio:", commit)
 assert io_drive.BASE_DIR_VENTANAS == VENT_DIR, "VENT_DIR no coincide con io_drive.BASE_DIR_VENTANAS"
 assert io_drive.BASE_DIR == ORIG_DIR, "ORIG_DIR no coincide con io_drive.BASE_DIR"
 assert hasattr(vt, "estado_plan") and "xgboost" in vt.MODELOS_LOCALES, "Codigo desactualizado: reinicia el entorno y vuelve a ejecutar esta celda"
+from tesis_forecast import colab_aislado as ca, telemetria
+assert hasattr(ca, "ejecutar_sesion") and hasattr(ca, "informe_progreso"), "Codigo desactualizado: Entorno de ejecucion > Reiniciar sesion y vuelve a ejecutar esta celda"
+muestra = telemetria.snapshot()
+print("Memoria al iniciar: RAM %.1f GB libres de %.1f | GPU %s de %s MB usados" % (
+    muestra["ram_disponible_gb"], muestra["ram_total_gb"], muestra["gpu_usada_mb"], muestra["gpu_total_mb"]))
 print("Ventanas:", {k: (str(v.test_start), str(v.test_end)) for k, v in windows.VENTANAS.items()})

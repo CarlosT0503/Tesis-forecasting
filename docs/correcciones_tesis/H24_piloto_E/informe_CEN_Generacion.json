@@ -1,0 +1,145 @@
+{
+  "region": "CEN",
+  "exogenas": [
+    "Generacion"
+  ],
+  "trials": 80,
+  "filas_tuning": 168,
+  "filas_contexto_validacion": 336,
+  "B1_causalidad_demanda": true,
+  "B2_prueba_no_influye": true,
+  "B3_exogenas_validacion": true,
+  "orden_temporal": "tune_train < validacion < reentrenamiento final (incluye la validacion) < prueba",
+  "reproduce_corrida_anterior": true,
+  "tabla": [
+    {
+      "configuracion": "anterior (intento 0, sin tuning)",
+      "intento": "-",
+      "sMAPE_validacion": 2.4125,
+      "MAPE_prueba": 3.2775,
+      "sMAPE_prueba": 3.3352,
+      "MAE_prueba": 237.34,
+      "RMSE_prueba": 282.49,
+      "parametros": {
+        "n_estimators": 106,
+        "max_depth": 8,
+        "learning_rate": 0.19103866719850912,
+        "subsample": 0.8795975452591109,
+        "colsample_bytree": 0.7468055921327309,
+        "min_child_weight": 2,
+        "reg_alpha": 0.2904180608409973,
+        "reg_lambda": 4.330880728874676
+      }
+    },
+    {
+      "configuracion": "E, mejor de los primeros 10 intentos",
+      "intento": 8,
+      "sMAPE_validacion": 2.1642,
+      "MAPE_prueba": 3.4904,
+      "sMAPE_prueba": 3.5552,
+      "MAE_prueba": 253.54,
+      "RMSE_prueba": 298.26,
+      "parametros": {
+        "n_estimators": 92,
+        "max_depth": 5,
+        "learning_rate": 0.06100332949444778,
+        "subsample": 0.9406590942262119,
+        "colsample_bytree": 0.7223651931039312,
+        "min_child_weight": 8,
+        "reg_alpha": 3.861223846483287,
+        "reg_lambda": 0.993578407670862
+      }
+    },
+    {
+      "configuracion": "E, mejor de los primeros 80 intentos",
+      "intento": 46,
+      "sMAPE_validacion": 1.8972,
+      "MAPE_prueba": 3.6047,
+      "sMAPE_prueba": 3.6787,
+      "MAE_prueba": 264.99,
+      "RMSE_prueba": 312.94,
+      "parametros": {
+        "n_estimators": 94,
+        "max_depth": 2,
+        "learning_rate": 0.060780807700571524,
+        "subsample": 0.8765898261456989,
+        "colsample_bytree": 0.8836556534738529,
+        "min_child_weight": 8,
+        "reg_alpha": 2.5886830728039487,
+        "reg_lambda": 0.09582391165198367
+      }
+    }
+  ],
+  "constantes": [
+    {
+      "region": "BCA",
+      "Temperatura_valores_distintos_en_672h": 1,
+      "IGAE_valores_distintos_en_672h": 1,
+      "Importacion_valores_distintos_en_672h": 1,
+      "Exportacion_valores_distintos_en_672h": 1,
+      "matrices_identicas_sin_la_columna_exogena": true
+    },
+    {
+      "region": "CEN",
+      "Temperatura_valores_distintos_en_672h": 1,
+      "IGAE_valores_distintos_en_672h": 1,
+      "Importacion_valores_distintos_en_672h": 1,
+      "Exportacion_valores_distintos_en_672h": 1,
+      "matrices_identicas_sin_la_columna_exogena": true
+    },
+    {
+      "region": "NES",
+      "Temperatura_valores_distintos_en_672h": 1,
+      "IGAE_valores_distintos_en_672h": 1,
+      "Importacion_valores_distintos_en_672h": 1,
+      "Exportacion_valores_distintos_en_672h": 1,
+      "matrices_identicas_sin_la_columna_exogena": true
+    },
+    {
+      "region": "NOR",
+      "Temperatura_valores_distintos_en_672h": 1,
+      "IGAE_valores_distintos_en_672h": 1,
+      "Importacion_valores_distintos_en_672h": 1,
+      "Exportacion_valores_distintos_en_672h": 1,
+      "matrices_identicas_sin_la_columna_exogena": true
+    },
+    {
+      "region": "NTE",
+      "Temperatura_valores_distintos_en_672h": 1,
+      "IGAE_valores_distintos_en_672h": 1,
+      "Importacion_valores_distintos_en_672h": 1,
+      "Exportacion_valores_distintos_en_672h": 1,
+      "matrices_identicas_sin_la_columna_exogena": true
+    },
+    {
+      "region": "OCC",
+      "Temperatura_valores_distintos_en_672h": 1,
+      "IGAE_valores_distintos_en_672h": 1,
+      "Importacion_valores_distintos_en_672h": 1,
+      "Exportacion_valores_distintos_en_672h": 1,
+      "matrices_identicas_sin_la_columna_exogena": true
+    },
+    {
+      "region": "ORI",
+      "Temperatura_valores_distintos_en_672h": 1,
+      "IGAE_valores_distintos_en_672h": 1,
+      "Importacion_valores_distintos_en_672h": 1,
+      "Exportacion_valores_distintos_en_672h": 1,
+      "matrices_identicas_sin_la_columna_exogena": true
+    },
+    {
+      "region": "PEN",
+      "Temperatura_valores_distintos_en_672h": 1,
+      "IGAE_valores_distintos_en_672h": 1,
+      "Importacion_valores_distintos_en_672h": 1,
+      "Exportacion_valores_distintos_en_672h": 1,
+      "matrices_identicas_sin_la_columna_exogena": true
+    }
+  ],
+  "constantes_predicciones_identicas": true,
+  "constantes_validacion_identica": true,
+  "tiempo_total_s": 780.2,
+  "tiempo_optuna_s": 546.8,
+  "tiempo_medio_por_intento_s": 6.83,
+  "intentos_finitos": 80
+}

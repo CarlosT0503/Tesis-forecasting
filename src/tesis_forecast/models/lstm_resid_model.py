@@ -129,6 +129,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 
 from ..checkpoint import cargar_checkpoint_regiones, precargar_en_acumulador
+from ..atomic_io import escribir_csv_atomico
 
 COL_FECHA = "fecha"
 COL_HORA = "Hora"
@@ -647,25 +648,25 @@ def _guardar_avance_csv(resultados, output_dir):
         df_series = _construir_df_series(resultados.series)
         df_series["region"] = df_series["serie"].map(_region_de_serie)
         df_series = df_series.sort_values(["serie", "fecha", "modelo"])
-        df_series.to_csv(os.path.join(output_dir, "series.csv"), index=False, encoding="utf-8-sig")
+        escribir_csv_atomico(df_series, os.path.join(output_dir, "series.csv"), index=False, encoding="utf-8-sig")
         print(f"\nOK Series guardadas (avance): {len(df_series):,} registros")
 
     if resultados.metrics:
         df_metrics = pd.DataFrame(resultados.metrics)
         df_metrics["region"] = df_metrics["serie"].map(_region_de_serie)
         df_metrics = df_metrics.sort_values(["serie", "MAPE"])
-        df_metrics.to_csv(os.path.join(output_dir, "metricas.csv"), index=False, encoding="utf-8-sig")
+        escribir_csv_atomico(df_metrics, os.path.join(output_dir, "metricas.csv"), index=False, encoding="utf-8-sig")
         print(f"OK Metricas guardadas (avance): {len(df_metrics):,} registros")
 
     if resultados.trials:
         df_trials = pd.concat(resultados.trials, ignore_index=True)
-        df_trials.to_csv(os.path.join(output_dir, "trials.csv"), index=False, encoding="utf-8-sig")
+        escribir_csv_atomico(df_trials, os.path.join(output_dir, "trials.csv"), index=False, encoding="utf-8-sig")
         print(f"OK Trials (LSTM residuo) guardados (avance): {len(df_trials):,} registros")
 
     if resultados.config_usada:
         df_config = pd.DataFrame(resultados.config_usada)
         df_config["region"] = df_config["serie"].map(_region_de_serie)
-        df_config.to_csv(os.path.join(output_dir, "config_usada.csv"), index=False, encoding="utf-8-sig")
+        escribir_csv_atomico(df_config, os.path.join(output_dir, "config_usada.csv"), index=False, encoding="utf-8-sig")
         print(f"OK Config usada guardada (avance): {len(df_config):,} registros")
 
 

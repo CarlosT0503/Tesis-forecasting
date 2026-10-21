@@ -12,21 +12,30 @@ El cuaderno solo lanza lo marcado `colab`; el script local solo lo marcado `loca
 
 ## Colab (lanzar y dejar)
 
+Detalle del mecanismo (un subproceso por configuración, telemetría, clases de fallo): `docs/COLAB_EJECUCION_AISLADA.md`.
+
 1. Colab -> *Archivo -> Abrir cuaderno -> GitHub* -> `CarlosT0503/Tesis-forecasting`, rama `main`, `notebooks/run_ventanas.ipynb`.
 2. Entorno de ejecucion -> **GPU (T4)**.
-3. Celda de codigo **1** (Setup; autorizar Drive). Debe imprimir la version del repositorio y no fallar los `assert`.
-4. Celda **2** (Auditoria) y **3** (Estado): solo lectura, opcionales.
-5. Celda **4** (Lanzamiento) con `SESION = "A"` y dejarla. Segunda pestana opcional: `SESION = "B"`. Nunca la misma sesion en dos pestanas.
+3. Celda de codigo **1** (Setup; autorizar Drive). Debe imprimir la version del repositorio, la memoria inicial y no fallar los `assert`. Si el `assert` dice "Codigo desactualizado": *Entorno de ejecucion -> Reiniciar sesion* y volver a ejecutarla.
+4. Celda **3** (Progreso, solo lectura): cuantas de las 112 estan completas y cuales faltan. La celda **2** (Auditoria) es opcional.
+5. Celda **4** (Lanzamiento) con `SESION = "A"` y dejarla. Segunda pestana: `SESION = "B"`. Nunca la misma sesion en dos pestanas. Para lotes mas chicos: `LOTE = "T2"`, `"T3-fcnn"`, `"T3-lstm_resid"`, `"T3-ensemble_stl"` o `"T3-lstm_direct"`.
 
-**Si se corta:** volver a ejecutar las celdas 1 y 4. Lo completo se salta; lo parcial continua desde la ultima region guardada.
+**Si se corta** (desconexion, 12 h, falta de RAM): *Reiniciar sesion*, celda 1 y celda 4 con la misma `SESION` y `LOTE`. Lo completo se salta; lo parcial continua desde la ultima region guardada; nada se repite.
 
 ## PC
 
 Un unico **supervisor** (`scripts/cola_local.py`, entorno `.venv_local`) corre en segundo plano y no depende de ninguna sesion de chat:
 
+Lanzarlo **por WMI** (el proceso queda fuera del árbol de la aplicación que lo invoca). Con `Start-Process` el supervisor y sus workers morían al reiniciarse la app de Claude (2026-10-20 11:07, `KeyboardInterrupt`):
+
 ```powershell
-powershell -Command "Start-Process .venv_local\Scripts\python.exe -ArgumentList 'scripts\cola_local.py' -WindowStyle Hidden"
+$raiz = "C:\Users\HP\Documents\Tesis Claude"
+$cmd = '"' + $raiz + '\.venv_local\Scripts\pythonw.exe" "' + $raiz + '\scripts\cola_local.py"'
+$si = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ShowWindow=[uint16]0}
+Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine=$cmd; CurrentDirectory=$raiz; ProcessStartupInformation=$si}
 ```
+
+Comprobación: el proceso `pythonw.exe` del supervisor debe tener como padre a `WmiPrvSE` y no estar en ningún *job* de Windows.
 
 - Prioridad: XGBoost/LightGBM T1 -> SARIMAX T1 -> XGBoost/LightGBM T3 -> SARIMAX T3 (este ultimo arranca solo cuando no queda nada mas prioritario).
 - Maximo 3 procesos a la vez (2 SARIMAX como mucho mientras queden arboles), 1 hilo BLAS/OpenMP por proceso, escalonados 20 s.

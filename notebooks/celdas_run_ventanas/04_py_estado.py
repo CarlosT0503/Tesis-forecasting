@@ -1,3 +1,4 @@
-estado = vt.estado_plan(VENT_DIR, ejecuta="colab")
-print(estado.groupby(["ventana", "estado"]).size().unstack(fill_value=0))
-print("Total asignado a Colab:", len(estado))
+inf = ca.informe_progreso(VENT_DIR)
+ruta_faltan = ca.guardar_faltantes(VENT_DIR, inf["faltan"])
+print("")
+print("Lista completa de lo que falta (112 - completas): " + ruta_faltan)

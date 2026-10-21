@@ -54,6 +54,7 @@ from tensorflow.keras.layers import Input, LSTM, Dense, Flatten, Concatenate
 from tensorflow.keras.callbacks import EarlyStopping
 
 from ..checkpoint import cargar_checkpoint_regiones, precargar_en_acumulador
+from ..atomic_io import escribir_csv_atomico
 
 # =========================================================
 # CONFIG POR DEFECTO (identica a la celda 58)
@@ -489,13 +490,26 @@ def tune_lstm(train_y, train_exog, nombre_serie, exog_cols, forecast_horizon, op
         load_if_exists=True,
     )
 
-    study.optimize(
-        lambda trial: objective_lstm(trial, train_y, train_exog, exog_cols, forecast_horizon),
-        n_trials=n_trials,
-        show_progress_bar=False,
-    )
+    # Al reanudar una region cortada a mitad, el estudio (en el .db) ya trae intentos completos: solo se corren
+    # los que faltan para llegar a `n_trials` (mismo patron que FCNN/LSTM residual/Ensemble STL), de modo que el
+    # presupuesto de Optuna de cada region sigue siendo exactamente `n_trials`.
+    pendientes = _intentos_pendientes(study, n_trials)
+    print(f"      Trials de Optuna restantes: {pendientes} de {n_trials}")
+
+    if pendientes > 0:
+        study.optimize(
+            lambda trial: objective_lstm(trial, train_y, train_exog, exog_cols, forecast_horizon),
+            n_trials=pendientes,
+            show_progress_bar=False,
+        )
 
     return study.best_params, study.trials_dataframe()
+
+
+def _intentos_pendientes(study, n_trials):
+    """Intentos de Optuna que faltan para completar el presupuesto `n_trials` (solo cuentan los COMPLETE)."""
+    completos = len([t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE])
+    return max(0, n_trials - completos)
 
 
 # =========================================================
@@ -613,25 +627,25 @@ def _guardar_avance_csv(resultados, output_dir):
         df_series["fecha"] = pd.to_datetime(df_series["fecha"], errors="coerce")
         df_series["region"] = df_series["serie"].map(_region_de_serie)
         df_series = df_series.sort_values(["serie", "fecha", "modelo"])
-        df_series.to_csv(os.path.join(output_dir, "series.csv"), index=False, encoding="utf-8-sig")
+        escribir_csv_atomico(df_series, os.path.join(output_dir, "series.csv"), index=False, encoding="utf-8-sig")
         print(f"\nOK Series guardadas (avance): {len(df_series):,} registros")
 
     if resultados.metrics:
         df_metrics = pd.DataFrame(resultados.metrics)
         df_metrics["region"] = df_metrics["serie"].map(_region_de_serie)
         df_metrics = df_metrics.sort_values(["serie", "MAPE"])
-        df_metrics.to_csv(os.path.join(output_dir, "metricas.csv"), index=False, encoding="utf-8-sig")
+        escribir_csv_atomico(df_metrics, os.path.join(output_dir, "metricas.csv"), index=False, encoding="utf-8-sig")
         print(f"OK Metricas guardadas (avance): {len(df_metrics):,} registros")
 
     if resultados.trials:
         df_trials = pd.concat(resultados.trials, ignore_index=True)
-        df_trials.to_csv(os.path.join(output_dir, "trials.csv"), index=False, encoding="utf-8-sig")
+        escribir_csv_atomico(df_trials, os.path.join(output_dir, "trials.csv"), index=False, encoding="utf-8-sig")
         print(f"OK Trials Optuna guardados (avance): {len(df_trials):,} registros")
 
     if resultados.config_usada:
         df_config = pd.DataFrame(resultados.config_usada)
         df_config["region"] = df_config["serie"].map(_region_de_serie)
-        df_config.to_csv(os.path.join(output_dir, "config_usada.csv"), index=False, encoding="utf-8-sig")
+        escribir_csv_atomico(df_config, os.path.join(output_dir, "config_usada.csv"), index=False, encoding="utf-8-sig")
         print(f"OK Config usada guardada (avance): {len(df_config):,} registros")
 
 

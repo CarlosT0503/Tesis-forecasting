@@ -41,6 +41,7 @@ for nombre in [
     sys.modules.setdefault(nombre, mock.MagicMock())
 
 import build_run_ventanas_notebook as bld  # noqa: E402
+from tesis_forecast import colab_aislado as ca  # noqa: E402
 from tesis_forecast import io_drive, runner, windows  # noqa: E402
 from tesis_forecast import ventanas_tools as vt  # noqa: E402
 from tesis_forecast.matrix import MatrixRunRecord, resumen_dataframe  # noqa: E402
@@ -104,7 +105,7 @@ def main():
         vent = os.path.join(tmp, "Pipeline_Resultados_Ventanas")
         os.makedirs(os.path.join(vent, "_auditoria"))
         base_ns = {"os": os, "vt": vt, "VENT_DIR": vent, "ORIG_DIR": os.path.join(tmp, "Pipeline_Resultados"),
-                   "resumen_dataframe": resumen_dataframe, "__builtins__": __builtins__}
+                   "resumen_dataframe": resumen_dataframe, "ca": ca, "__builtins__": __builtins__}
 
         print("\n3. Celda 2 (auditoria) con regiones faltantes y completas")
         from test_windows import construir_datos  # datos sinteticos: CEN y NES completas, BCA corta
@@ -140,46 +141,58 @@ def main():
             pd.DataFrame({"x": [1]}).to_csv(os.path.join(d, "series.csv"), index=False)
         ns3 = dict(base_ns)
         ejecutar(codigo[2], ns3)
-        est = ns3["estado"]
+        est = ns3["inf"]["estado"]
         s = est[est["ventana"] == "S4"].set_index("run_name")["estado"]
         check(s[run_completa] == "completa" and s[run_parcial] == "parcial", "estado_plan distingue completa / parcial")
         check((est["estado"] == "no_iniciada").sum() == len(est) - 2 and len(est) == 28 * 4, "las demas corridas de Colab figuran no iniciadas (112 en total)")
+        check(os.path.exists(os.path.join(vent, "_auditoria", "faltan_colab.csv")) and len(pd.read_csv(os.path.join(vent, "_auditoria", "faltan_colab.csv"))) == 111,
+              "la celda 3 guarda los faltantes (111 = 112 - 1 completa)")
 
-        print("\n5. Celda 4 (lanzamiento): sesiones A y B")
-        llamadas = {}
-        for sesion in ("A", "B"):
-            registrados = []
+        print("\n5. Celda 4 (lanzamiento) integrada con la ejecucion aislada: sesiones A y B (lote T2, subprocesos simulados)")
+        import types
 
-            def run_matrix_falso(configs, data_dir=None, mount_drive=False, _r=registrados):
-                recs = []
-                for c in configs:
-                    r = runner.resolve_run(c)
-                    recs.append(MatrixRunRecord(c, r.run_name, "completed", 1.0, None, r.run_dir, duracion_s=0.1))
-                _r.append(list(configs))
-                return recs
+        base_original = io_drive.BASE_DIR_VENTANAS
+        io_drive.BASE_DIR_VENTANAS = vent  # las rutas de resultados quedan en el directorio temporal
+        try:
+            hijo_falso = os.path.join(RAIZ, "tests", "_hijo_falso.py")
 
-            ns4 = dict(base_ns, DATA_DIR=datos, run_matrix=run_matrix_falso)
-            ejecutar(codigo[3].replace('SESION = "A"', 'SESION = "%s"' % sesion), ns4)
-            cfgs = [c for lote in registrados for c in lote]
-            llamadas[sesion] = cfgs
-            check(set(ns4["MIS_VENTANAS"]) == ({"S4", "S1"} if sesion == "A" else {"S2", "S3"}),
-                  "sesion %s procesa %s" % (sesion, ns4["MIS_VENTANAS"]))
-            check(all(vt.ejecuta_en(c.modelo) == "colab" for c in cfgs), "sesion %s: solo modelos de Colab (redes)" % sesion)
-            check(len(cfgs) == 56, "sesion %s lanza %d corridas (esperadas 56)" % (sesion, len(cfgs)))
-            check(os.path.exists(os.path.join(vent, "_auditoria", "tiempos_colab_%s.csv" % sesion)), "sesion %s guarda tiempos" % sesion)
-            niveles_en_orden = [ns4["cola"][i][0] for i in range(len(ns4["cola"]))]
-            check(niveles_en_orden == sorted(niveles_en_orden), "sesion %s: orden de niveles T2 antes que T3" % sesion)
-        claves = lambda cs: {(c.ventana, runner.resolve_run(c).run_name) for c in cs}
-        a, b = claves(llamadas["A"]), claves(llamadas["B"])
-        check(not (a & b), "sesiones A y B sin traslape")
-        plan_colab = {(r.ventana, r.run_name) for r in vt.plan_dataframe().query("ejecuta_en == 'colab'").itertuples()}
-        check((a | b) == plan_colab and len(plan_colab) == 112, "A u B cubren exactamente las 112 corridas de Colab del plan")
-        todas = [runner.resolve_run(c) for c in llamadas["A"] + llamadas["B"]]
-        check(all(r.run_dir.replace(os.sep, "/").startswith(io_drive.BASE_DIR_VENTANAS) for r in todas),
-              "todas las rutas dentro de Pipeline_Resultados_Ventanas/")
-        check(not any(r.run_dir.replace(os.sep, "/").startswith(io_drive.BASE_DIR + "/") for r in todas),
-              "ninguna ruta dentro de Pipeline_Resultados/ (originales)")
-        check(len({(r.ventana, r.run_name) for r in todas}) == len(todas), "ningun RUN_NAME repetido dentro de una ventana")
+            def comando(cfg_json, res_json, data_dir, vent_dir):
+                from tesis_forecast.config import ExperimentConfig
+
+                cfg = ExperimentConfig(**json.load(open(cfg_json)))
+                return [sys.executable, hijo_falso, runner.resolve_run(cfg).run_dir, "ok", cfg_json + ".contador", res_json]
+
+            ca_prueba = types.SimpleNamespace(
+                ejecutar_sesion=lambda *a, **k: ca.ejecutar_sesion(*a, comando_hijo=comando, sondeo_s=0.5, tmp_dir=os.path.join(tmp, "sub"),
+                                                                     intervalo_telemetria_s=1, **k),
+                informe_progreso=ca.informe_progreso, guardar_faltantes=ca.guardar_faltantes)
+            lanzadas = {}
+            check('LOTE = "TODO"' in codigo[3] and "MAX_INTENTOS" in codigo[3], "la celda 4 expone SESION, LOTE (por defecto TODO) y MAX_INTENTOS")
+            for sesion in ("A", "B"):
+                ns4 = dict(base_ns, ca=ca_prueba, DATA_DIR=datos)
+                fuente = codigo[3].replace('SESION = "A"', 'SESION = "%s"' % sesion).replace('LOTE = "TODO"', 'LOTE = "T2"')
+                ejecutar(fuente, ns4)
+                res = ns4["resumen"]
+                vistas = res["status"].value_counts().to_dict()
+                esperado = {"completed": 7, "skipped_ya_completo": 1} if sesion == "A" else {"completed": 8}  # en A se dejo una corrida ya completa (paso 4)
+                check(len(res) == 8 and vistas == esperado, "sesion %s lote T2: 8 corridas, %s (la ya completa se salta y la parcial se reanuda)" % (sesion, vistas))
+                check(set(res["ventana"]) == ({"S4", "S1"} if sesion == "A" else {"S2", "S3"}), "sesion %s procesa solo sus ventanas" % sesion)
+                check(all(vt.ejecuta_en(m) == "colab" for m in res["modelo"]), "sesion %s: solo modelos de Colab (redes)" % sesion)
+                check(os.path.exists(os.path.join(vent, "_auditoria", "tiempos_colab_%s.csv" % sesion)), "sesion %s guarda tiempos" % sesion)
+                tel = os.path.join(vent, "_auditoria", "telemetria_colab_%s.csv" % sesion)
+                check(os.path.exists(tel) and len(pd.read_csv(tel)) >= 2, "sesion %s guarda telemetria de RAM/GPU en _auditoria" % sesion)
+                check(os.path.exists(os.path.join(vent, "_auditoria", "subprocesos_colab_%s.csv" % sesion)), "sesion %s registra cada subproceso" % sesion)
+                lanzadas[sesion] = {(r.ventana, r.run_name) for r in res.itertuples()}
+            a, b = lanzadas["A"], lanzadas["B"]
+            check(not (a & b), "sesiones A y B sin traslape")
+            plan_t2 = {(r.ventana, r.run_name) for r in vt.plan_dataframe().query("ejecuta_en == 'colab' and nivel == 'T2'").itertuples()}
+            check((a | b) == plan_t2 and len(plan_t2) == 16, "A u B cubren exactamente las 16 corridas T2 de Colab del plan")
+            rutas = [os.path.join(vent, v, n) for v, n in plan_t2]
+            check(all(os.path.isdir(r) for r in rutas), "todas las rutas dentro de Pipeline_Resultados_Ventanas/")
+            check(not os.path.exists(io_drive.BASE_DIR), "nada en Pipeline_Resultados/ (originales)")
+            plan_colab = {(r.ventana, r.run_name) for r in vt.plan_dataframe().query("ejecuta_en == 'colab'").itertuples()}
+        finally:
+            io_drive.BASE_DIR_VENTANAS = base_original
 
         print("\n6. La PC y Colab no se pisan")
         local = {(r.ventana, r.run_name) for r in vt.plan_dataframe().query("ejecuta_en == 'local'").itertuples()}

@@ -211,3 +211,9 @@ directamente). Dos partes:
 
 Ver el reporte de la conversacion para los resultados exactos de esta
 corrida.
+
+## Actualizacion 2026-10-20: guardado atomico y presupuesto de Optuna al reanudar
+
+- Los CSV de avance (`series`, `metricas`, `trials`, `config_usada`) de FCNN, LSTM directa, LSTM residual y Ensemble STL, y los CSV finales de `runner.py`, se escriben con `atomic_io.escribir_csv_atomico`: temporal `.tmp_*.part` en la **misma carpeta** y `os.replace`. Una caida durante la escritura ya no deja un CSV truncado (que el checkpoint trataba como vacio y obligaba a recalcular toda la corrida). `run_config_aislada.py` borra al empezar los temporales huerfanos de la carpeta de la corrida.
+- LSTM directa: al reanudar una region cortada a mitad solo corre los intentos de Optuna que faltan (`_intentos_pendientes`: cuentan solo los `COMPLETE`), igual que FCNN, LSTM residual y Ensemble STL. Antes corria `n_trials` intentos mas, por lo que podia terminar con mas de 10.
+- Detalle y pruebas: `docs/COLAB_EJECUCION_AISLADA.md`.

@@ -1,0 +1,269 @@
+OK CEN: C:\Users\HP\Documents\Tesis Claude\datos_locales\CEN_long.csv cargado con shape (64800, 11)
+Temperaturas    | 2019-01-01 -> 2026-03-31 | 63,528 filas
+Primarias       | 2019-01-01 -> 2026-03-31 | 63,528 filas
+Secundarias     | 2019-01-01 -> 2026-03-31 | 63,528 filas
+Terciarias      | 2019-01-01 -> 2026-03-31 | 63,528 filas
+IGAE            | 2019-01-01 -> 2026-03-31 | 63,528 filas
+
+Exogenas cargadas para CEN:
+   Generacion      | 64,796 valores
+
+   Split general fijo
+      Train: 504 obs
+      Test: 168 obs
+      Horizonte: 168 horas
+
+   Exogenas activas:
+      Generacion: estimada con t-168 y t-336
+
+   Split general fijo
+      Train: 336 obs
+      Test: 168 obs
+      Horizonte: 168 horas
+
+   Exogenas activas:
+      Generacion: estimada con t-168 y t-336
+
+=== A. Estructura temporal de E ===
+tune_train: 336 h | validacion: 168 h | prueba: 168 h
+Fechas: entrenamiento Optuna 2026-04-26T00:00:00.000000000 -> 2026-05-09T23:00:00.000000000 | validacion 2026-05-10T00:00:00.000000000 -> 2026-05-16T23:00:00.000000000 | reentrenamiento final 2026-05-03T00:00:00.000000000 -> 2026-05-16T23:00:00.000000000 | prueba 2026-05-17T00:00:00.000000000 -> 2026-05-23T23:00:00.000000000
+OK: las 336 h de reentrenamiento y la prueba son IDENTICAS a las de la configuracion anterior.
+filas utilizables en tuning: 168 (minimo 50) | filas de contexto de validacion: 336 (necesita >= 168)
+
+=== B. Pruebas de ausencia de informacion futura ===
+B1 fila de validacion t no cambia al alterar la demanda en t..fin: True
+
+   Split general fijo
+      Train: 504 obs
+      Test: 168 obs
+      Horizonte: 168 horas
+
+   Exogenas activas:
+      Generacion: estimada con t-168 y t-336
+B2 los datos de tuning/validacion no cambian al alterar la semana de prueba: True
+B3 exogenas operativas de validacion (promedio t-168/t-336) no dependen de datos desde el inicio de la validacion: True | variables operativas: ['Generacion']
+   Temperatura/IGAE (si estan activas) se usan con su valor del periodo, igual que en el diseno original.
+
+=== C. Optuna: 80 intentos reales (los 10 primeros = presupuesto de una region en el diseno actual) ===
+intentos finitos: 80/80 | tiempo Optuna: 547 s | por intento: media 6.8 s
+
+=== D. Metricas: VALIDACION y PRUEBA por separado (la prueba NO se uso para elegir nada) ===
+                       configuracion intento  sMAPE_validacion  MAPE_prueba  sMAPE_prueba  MAE_prueba  RMSE_prueba
+    anterior (intento 0, sin tuning)       -            2.4125       3.2775        3.3352      237.34       282.49
+E, mejor de los primeros 10 intentos       8            2.1642       3.4904        3.5552      253.54       298.26
+E, mejor de los primeros 80 intentos      46            1.8972       3.6047        3.6787      264.99       312.94
+
+Parametros:
+ - anterior (intento 0, sin tuning) {'n_estimators': 106, 'max_depth': 8, 'learning_rate': 0.19103866719850912, 'subsample': 0.8795975452591109, 'colsample_bytree': 0.7468055921327309, 'min_child_weight': 2, 'reg_alpha': 0.2904180608409973, 'reg_lambda': 4.330880728874676}
+ - E, mejor de los primeros 10 intentos {'n_estimators': 92, 'max_depth': 5, 'learning_rate': 0.06100332949444778, 'subsample': 0.9406590942262119, 'colsample_bytree': 0.7223651931039312, 'min_child_weight': 8, 'reg_alpha': 3.861223846483287, 'reg_lambda': 0.993578407670862}
+ - E, mejor de los primeros 80 intentos {'n_estimators': 94, 'max_depth': 2, 'learning_rate': 0.060780807700571524, 'subsample': 0.8765898261456989, 'colsample_bytree': 0.8836556534738529, 'min_child_weight': 8, 'reg_alpha': 2.5886830728039487, 'reg_lambda': 0.09582391165198367}
+
+COMPROBACION: MAPE de prueba con los parametros anteriores recalculado aqui = 3.2775 | guardado en la corrida S4 = 3.2775
+
+=== E. Variables 'constantes': verificacion de matrices de caracteristicas (8 regiones, S4) ===
+Temperaturas    | 2019-01-01 -> 2026-03-31 | 63,528 filas
+Primarias       | 2019-01-01 -> 2026-03-31 | 63,528 filas
+Secundarias     | 2019-01-01 -> 2026-03-31 | 63,528 filas
+Terciarias      | 2019-01-01 -> 2026-03-31 | 63,528 filas
+IGAE            | 2019-01-01 -> 2026-03-31 | 63,528 filas
+OK BCA: C:\Users\HP\Documents\Tesis Claude\datos_locales\BCA_long.csv cargado con shape (64799, 11)
+
+Exogenas cargadas para BCA:
+   Temperatura     | 63,528 valores
+   IGAE            | 63,528 valores
+   Importacion     | 63,528 valores
+   Exportacion     | 63,528 valores
+
+   Split general fijo
+      Train: 504 obs
+      Test: 168 obs
+      Horizonte: 168 horas
+
+   Exogenas activas:
+      Temperatura: valor del horizonte
+      IGAE: valor del horizonte
+      Importacion: estimada con t-168 y t-336
+      Exportacion: estimada con t-168 y t-336
+OK CEN: C:\Users\HP\Documents\Tesis Claude\datos_locales\CEN_long.csv cargado con shape (64800, 11)
+
+Exogenas cargadas para CEN:
+   Temperatura     | 63,528 valores
+   IGAE            | 63,528 valores
+   Importacion     | 63,528 valores
+   Exportacion     | 63,528 valores
+
+   Split general fijo
+      Train: 504 obs
+      Test: 168 obs
+      Horizonte: 168 horas
+
+   Exogenas activas:
+      Temperatura: valor del horizonte
+      IGAE: valor del horizonte
+      Importacion: estimada con t-168 y t-336
+      Exportacion: estimada con t-168 y t-336
+OK NES: C:\Users\HP\Documents\Tesis Claude\datos_locales\NES_long.csv cargado con shape (64800, 11)
+
+Exogenas cargadas para NES:
+   Temperatura     | 63,528 valores
+   IGAE            | 63,528 valores
+   Importacion     | 63,528 valores
+   Exportacion     | 63,528 valores
+
+   Split general fijo
+      Train: 504 obs
+      Test: 168 obs
+      Horizonte: 168 horas
+
+   Exogenas activas:
+      Temperatura: valor del horizonte
+      IGAE: valor del horizonte
+      Importacion: estimada con t-168 y t-336
+      Exportacion: estimada con t-168 y t-336
+OK NOR: C:\Users\HP\Documents\Tesis Claude\datos_locales\NOR_long.csv cargado con shape (64800, 11)
+
+Exogenas cargadas para NOR:
+   Temperatura     | 63,528 valores
+   IGAE            | 63,528 valores
+   Importacion     | 63,528 valores
+   Exportacion     | 63,528 valores
+
+   Split general fijo
+      Train: 504 obs
+      Test: 168 obs
+      Horizonte: 168 horas
+
+   Exogenas activas:
+      Temperatura: valor del horizonte
+      IGAE: valor del horizonte
+      Importacion: estimada con t-168 y t-336
+      Exportacion: estimada con t-168 y t-336
+OK NTE: C:\Users\HP\Documents\Tesis Claude\datos_locales\NTE_long.csv cargado con shape (64800, 11)
+
+Exogenas cargadas para NTE:
+   Temperatura     | 63,528 valores
+   IGAE            | 63,528 valores
+   Importacion     | 63,528 valores
+   Exportacion     | 63,528 valores
+
+   Split general fijo
+      Train: 504 obs
+      Test: 168 obs
+      Horizonte: 168 horas
+
+   Exogenas activas:
+      Temperatura: valor del horizonte
+      IGAE: valor del horizonte
+      Importacion: estimada con t-168 y t-336
+      Exportacion: estimada con t-168 y t-336
+OK OCC: C:\Users\HP\Documents\Tesis Claude\datos_locales\OCC_long.csv cargado con shape (64800, 11)
+
+Exogenas cargadas para OCC:
+   Temperatura     | 63,528 valores
+   IGAE            | 63,528 valores
+   Importacion     | 63,528 valores
+   Exportacion     | 63,528 valores
+
+   Split general fijo
+      Train: 504 obs
+      Test: 168 obs
+      Horizonte: 168 horas
+
+   Exogenas activas:
+      Temperatura: valor del horizonte
+      IGAE: valor del horizonte
+      Importacion: estimada con t-168 y t-336
+      Exportacion: estimada con t-168 y t-336
+OK ORI: C:\Users\HP\Documents\Tesis Claude\datos_locales\ORI_long.csv cargado con shape (64800, 11)
+
+Exogenas cargadas para ORI:
+   Temperatura     | 63,528 valores
+   IGAE            | 63,528 valores
+   Importacion     | 63,528 valores
+   Exportacion     | 63,528 valores
+
+   Split general fijo
+      Train: 504 obs
+      Test: 168 obs
+      Horizonte: 168 horas
+
+   Exogenas activas:
+      Temperatura: valor del horizonte
+      IGAE: valor del horizonte
+      Importacion: estimada con t-168 y t-336
+      Exportacion: estimada con t-168 y t-336
+OK PEN: C:\Users\HP\Documents\Tesis Claude\datos_locales\PEN_long.csv cargado con shape (64800, 11)
+
+Exogenas cargadas para PEN:
+   Temperatura     | 63,528 valores
+   IGAE            | 63,528 valores
+   Importacion     | 63,528 valores
+   Exportacion     | 63,528 valores
+
+   Split general fijo
+      Train: 504 obs
+      Test: 168 obs
+      Horizonte: 168 horas
+
+   Exogenas activas:
+      Temperatura: valor del horizonte
+      IGAE: valor del horizonte
+      Importacion: estimada con t-168 y t-336
+      Exportacion: estimada con t-168 y t-336
+region  Temperatura_valores_distintos_en_672h  IGAE_valores_distintos_en_672h  Importacion_valores_distintos_en_672h  Exportacion_valores_distintos_en_672h  matrices_identicas_sin_la_columna_exogena
+   BCA                                      1                               1                                      1                                      1                                       True
+   CEN                                      1                               1                                      1                                      1                                       True
+   NES                                      1                               1                                      1                                      1                                       True
+   NOR                                      1                               1                                      1                                      1                                       True
+   NTE                                      1                               1                                      1                                      1                                       True
+   OCC                                      1                               1                                      1                                      1                                       True
+   ORI                                      1                               1                                      1                                      1                                       True
+   PEN                                      1                               1                                      1                                      1                                       True
+
+Exogenas cargadas para CEN:
+   Temperatura     | 63,528 valores
+
+   Split general fijo
+      Train: 504 obs
+      Test: 168 obs
+      Horizonte: 168 horas
+
+   Exogenas activas:
+      Temperatura: valor del horizonte
+
+Exogenas cargadas para CEN:
+   IGAE            | 63,528 valores
+
+   Split general fijo
+      Train: 504 obs
+      Test: 168 obs
+      Horizonte: 168 horas
+
+   Exogenas activas:
+      IGAE: valor del horizonte
+
+Exogenas cargadas para CEN:
+   Importacion     | 8,759 valores
+
+   Split general fijo
+      Train: 504 obs
+      Test: 168 obs
+      Horizonte: 168 horas
+
+   Exogenas activas:
+      Importacion: estimada con t-168 y t-336
+
+Exogenas cargadas para CEN:
+   Exportacion     | 8,759 valores
+
+   Split general fijo
+      Train: 504 obs
+      Test: 168 obs
+      Horizonte: 168 horas
+
+   Exogenas activas:
+      Exportacion: estimada con t-168 y t-336
+Con los mismos parametros, prediccion de prueba bit a bit identica entre Temp/IGAE/Imp/Exp: True | sMAPE de validacion identico: True
+
+TIEMPO TOTAL del piloto: 780.2 s | solo Optuna (80 intentos): 546.8 s
+FIN

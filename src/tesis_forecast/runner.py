@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from . import io_drive, windows
+from .atomic_io import escribir_csv_atomico
 from .config import ExperimentConfig, build_run_name, resolved_config_dict
 from .data.exogenas import cargar_exogenas_horarias
 from .models import (
@@ -416,18 +417,18 @@ def run_experiment(
             # otro con que hiperparametros se logro.
             archivos = {"config": os.path.join(run_dir, "config.json")}
 
-            series_df.to_csv(os.path.join(run_dir, "series.csv"), index=False, encoding="utf-8-sig")
+            escribir_csv_atomico(series_df, os.path.join(run_dir, "series.csv"), index=False, encoding="utf-8-sig")
             archivos["series"] = os.path.join(run_dir, "series.csv")
 
-            metricas_df.to_csv(os.path.join(run_dir, "metricas.csv"), index=False, encoding="utf-8-sig")
+            escribir_csv_atomico(metricas_df, os.path.join(run_dir, "metricas.csv"), index=False, encoding="utf-8-sig")
             archivos["metricas"] = os.path.join(run_dir, "metricas.csv")
 
             if trials_df is not None and len(trials_df) > 0:
-                trials_df.to_csv(os.path.join(run_dir, "trials.csv"), index=False, encoding="utf-8-sig")
+                escribir_csv_atomico(trials_df, os.path.join(run_dir, "trials.csv"), index=False, encoding="utf-8-sig")
                 archivos["trials"] = os.path.join(run_dir, "trials.csv")
 
             if config_usada_df is not None and len(config_usada_df) > 0:
-                config_usada_df.to_csv(os.path.join(run_dir, "config_usada.csv"), index=False, encoding="utf-8-sig")
+                escribir_csv_atomico(config_usada_df, os.path.join(run_dir, "config_usada.csv"), index=False, encoding="utf-8-sig")
                 archivos["config_usada"] = os.path.join(run_dir, "config_usada.csv")
 
             archivos["log"] = log_path

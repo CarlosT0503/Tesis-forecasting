@@ -109,3 +109,7 @@ Uno por modelo en `tests/`, mismo patrón: construyen datos sintéticos mínimos
 | `tests/smoke_lstm_resid.py` | No (falta `tensorflow`/`optuna`). Lógica sin esas librerías (extracción de serie, alineación de exógenas, tratamiento futuro conocida/lag168, STL, dimensiones de ventanas) verificada por separado con pandas/numpy/statsmodels/sklearn puros. | Pendiente de correr en Colab |
 
 Todos compilan (`py_compile`) y su lógica de generación de datos sintéticos fue verificada por separado donde no dependía de las librerías faltantes.
+
+## Cambio 2026-10-20 (LSTM directa): presupuesto de Optuna al reanudar
+
+`lstm_direct.tune_lstm` ejecutaba `study.optimize(n_trials=n_trials)` aun cuando el estudio SQLite (`load_if_exists=True`) ya traia intentos de una sesion interrumpida, de modo que una region reanudada terminaba con mas de `n_trials` intentos. Ahora solo corre los que faltan (`n_trials - completos`, sin contar intentos fallidos ni `RUNNING`), como FCNN/LSTM residual/Ensemble STL. No cambia el espacio de busqueda, la semilla del sampler, las ventanas ni las metricas. Prueba: `tests/test_lstm_direct_resume.py`.
