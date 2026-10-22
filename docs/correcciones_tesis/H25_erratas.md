@@ -42,10 +42,23 @@ Parche en `tesis.tex` (líneas 2147–2152 del `.tex` del 15/10; la primera de l
 Chen, T. \& Guestrin, C. (2016):
 \emph{XGBoost: A Scalable Tree Boosting System.}
 Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining (KDD '16),
-ACM, Estados Unidos de América.
+785--794, ACM, San Francisco, CA, Estados Unidos de América.
+DOI: 10.1145/2939672.2939785.
 ```
 
-El texto de la entrada es el de la versión del 24/09 (del propio autor), con el formato de las demás entradas. **No añadí DOI ni páginas**: no los verifiqué en esta sesión; si se desean, hay que comprobarlos en la fuente. Antes de aplicarlo, confirmar que la posición 12 sigue siendo la primera `Cerqueira2020` en la versión vigente y que `LightGBM` sigue en [18].
+**Verificación de los datos (22/10), qué se comprobó y contra qué:**
+
+| Dato | Resultado | Fuente |
+|---|---|---|
+| Autores: Tianqi Chen y Carlos Guestrin; título *XGBoost: A Scalable Tree Boosting System* | Confirmado | Página del preprint en arXiv (1603.02754) |
+| Congreso: KDD '16, 13–17 de agosto de 2016, San Francisco, CA, EE. UU.; © 2016 ACM; ISBN 978-1-4503-4232-2/16/08 | Confirmado en el encabezado del propio artículo | Primera página de la versión PDF del artículo (arXiv, v2, formato KDD'16) |
+| DOI 10.1145/2939672.2939785 | Confirmado en el mismo encabezado y en la página de arXiv | ídem |
+| Páginas 785–794 | Confirmadas solo en **fuentes secundarias**: un archivo BibTeX de paquete de software y un artículo de 2023 que cita la obra con esas páginas. La versión de arXiv no lleva paginación y la página de ACM respondió 403 | Resultados de búsqueda; no pude abrir la página de ACM |
+| Nombre del libro de actas "Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining" | Coincide con el de la versión del 24/09 y con las fuentes secundarias; el encabezado del artículo solo dice "KDD '16" | ídem |
+
+La entrada conserva el texto de la versión del 24/09 (del propio autor) y añade solo lo comprobado: páginas, ciudad y DOI. El país se mantiene como "Estados Unidos de América" para seguir el formato del resto de la bibliografía; se omitió el ISBN porque ninguna otra entrada lo lleva. **Pendiente menor:** confirmar las páginas 785–794 en la página de ACM (`dl.acm.org/doi/10.1145/2939672.2939785`) cuando el autor pueda abrirla; el resto no depende de eso.
+
+Antes de aplicarlo, confirmar que la posición 12 sigue siendo la primera `Cerqueira2020` en la versión vigente y que `LightGBM` sigue en [18].
 
 ### (c) Cap. 4 — dos secciones tituladas "Deep Learning" (§4.1.3 y §4.1.8)
 
@@ -77,11 +90,11 @@ El párrafo en negritas es el segundo párrafo de §4.1.8 **verbatim**. No se pi
 1. §4.1.4 "Entrenamiento de modelos supervisados" y §4.1.9 "Entrenamiento mediante gradiente" describen ambos la pérdida, el descenso del gradiente y la retropropagación.
 2. $\hat y=f(x;\theta)$ aparece como (4.3) en §4.1.3 y de nuevo como (4.13) en §4.1.10.
 
-### (d) Tabla 5.1 — filas desalineadas
+### (d) Tabla 5.1 — **no es una errata** (revisada visualmente el 22/10)
 
-**Lo que muestra la extracción de texto del PDF:** los valores aparecen desplazados una fila ("17–23 mayo 2026" frente a "Ventana de entrada", "168 horas" frente a "Entrenamiento", "336–3600 horas" frente a "Optimización", "Optuna" sin etiqueta). **Aviso:** sale de la extracción y de la nota previa de H25; no la revisé sobre la página renderizada y una extracción puede ordenar mal celdas que en el PDF sí están alineadas. Falta comprobar el entorno `tabular` de la Tabla 5.1 en el `.tex` (tampoco lo hice) o mirar la página.
+Renderizada la página 26 del PDF (11) (página 42 del archivo), **la tabla está bien alineada**: cada etiqueta tiene su valor (Ventana de prueba principal → 17–23 mayo 2026; Ventana de entrada → 168 horas; Entrenamiento → 336–3600 horas, según familia; Optimización → Optuna (cuando aplica)). La "desalineación" de la nota original de H25 era un artefacto de la extracción de texto. **Se retira (d) como errata.** El único cambio pendiente de la tabla no es de formato sino de contenido: la fila "Ventana de prueba principal" debe pasar a las cuatro semanas S1–S4 cuando se integre R13.
 
-**Tabla propuesta** (con la ventana adaptada a S1–S4, R13):
+**Tabla propuesta** (solo cambia la fila de ventana; R13):
 
 | Parámetro | Valor |
 |---|---|
@@ -108,7 +121,21 @@ Con el texto actual la fila de ventana valdría "17–23 de mayo de 2026".
 | k | Bibliografía [19]–[22] | URLs escritas como texto plano (sin `\url{}`; `url` ya está cargado en el preámbulo, línea 17): la de [20] se corta en el margen y en [21] la `#` desaparece ("inicio//"); [22] "R. A (2016)" sin punto | Envolver en `\url{…}` ([19]–[21]); la URL correcta de [20] ya está completa en el `.tex` (`…/EnergiaGeneradaTipoTec.aspx`); [21]: `https://sie.energia.gob.mx/inicio/#/`. Ver también H23: [20] no respalda las series horarias |
 | l | Cap. 2 | "El SIN se divide en nueve regiones operativas: BCA, BCS…" | Ya cubierta: R16 reemplaza la frase (H17). Contradice la lista de §5.1.1 |
 | m | **§4.1.6 (cita rota)** | "Chen y Guestrin **[?]**" | Ver (b): restaurar la entrada de XGBoost en la posición 12 |
-| n | **Referencias sin citar** | En el `.tex` (15/10), `Garcia` [19], `CENACE` [20] y `SIE` [21] no se citan en ninguna parte (las demás claves sí, y la de Cerqueira2020 está duplicada); la `Buitrago` está comentada | [20] y [21] las citarán R14–R16 (resuelto al integrar). **[19] Garcia (2019, blog de Xeridia)** sigue sin cita: citarla donde corresponda (p. ej., en la explicación de redes neuronales de §4.1) o retirarla. El autor decide. Además, una referencia a un blog es débil frente a las demás |
+| n | **Referencias sin citar** | En el `.tex` (15/10), `Garcia` [19], `CENACE` [20] y `SIE` [21] no se citan en ninguna parte (las demás claves sí, y la de Cerqueira2020 está duplicada); la `Buitrago` está comentada | [20] y [21] las citarán R14–R16 (resuelto al integrar). **[19] Garcia (2019, blog de Xeridia)** sigue sin cita. **Decisión del autor (22/10): puede retirarse si no es necesaria; por ahora solo se documenta la propuesta, sin aplicarla** (ver "Retiro propuesto de [19]" más abajo) |
+
+### Retiro propuesto de [19] Garcia (2019) — solo documentado, no aplicar todavía
+
+**Por qué:** es un blog (Xeridia, "Redes neuronales artificiales: qué son y cómo se entrenan") que **no se cita en ninguna parte** del texto (15/10): `\bibitem{Garcia}` sin ningún `\cite{Garcia}`. Es una fuente más débil que el resto y la teoría de redes del Cap. 4 ya se apoya en otras.
+
+**Efecto de borrarla sin más:** como la numeración es posicional, [20]–[23] pasarían a [19]–[22]. Cambiarían los números de **[22] Brockwell y Davis y [23] Hochreiter y Schmidhuber (ambas citadas en el texto)** y de [20] y [21], cuyas citas las introducirán R14–R16; además se desplazarían todas las nuevas ([24]–[35]).
+
+| Opción | Efecto sobre la numeración |
+|---|---|
+| **1. No retirarla** (estado actual) | Ninguno. Queda una referencia sin cita, que un revisor puede señalar |
+| **2. Retirarla al final**, junto con todo el bloque de referencias nuevas, y renumerar **una sola vez** los borradores R14–R16 (cambio mecánico: [20]–[35] bajan una posición) | Todo cambia una vez, ya integrado el resto. Reduce el riesgo de errores porque se hace al final |
+| **3. Sustituir su entrada por una referencia nueva que sí se cite** (la misma maniobra que con [12]: p. ej. la nueva [35] pasa a [19]) | Ninguno; todos los números existentes se conservan |
+
+Recomendación: **opción 3 si hay una referencia nueva que se quiera conservar; si no, opción 1 hasta el final** y decidir entonces. La retirada solo se aplica con autorización expresa.
 
 ## 3. Efecto sobre otras correcciones
 
@@ -122,12 +149,17 @@ Con el texto actual la fila de ventana valdría "17–23 de mayo de 2026".
 
 ## 4. Decisiones del autor del 22/10 que recoge este documento
 
-1. Conservar los números de referencia existentes, sin renumeración general → resuelto con la sustitución de la entrada 12 (b). La verificación que se pidió está hecha: bibliografía manual (`thebibliography`) con numeración posicional.
-2. Fusionar §4.1.3 y §4.1.8 si es redundante, conservando lo técnicamente relevante → (c).
-3. `tesis.tex` sin editar todavía.
+1. Usar provisionalmente el `tesis.tex` del 15/10 como referencia, sin modificarlo, hasta confirmar que es la última versión.
+2. Sustituir la entrada duplicada [12] por la original de XGBoost, conservando la numeración → (b). Datos verificados (DOI, congreso, ciudad; páginas en fuentes secundarias).
+3. [19] Garcia puede retirarse, pero solo se documenta la propuesta, para no desplazar las demás → "Retiro propuesto de [19]".
+4. DOI, páginas y datos de XGBoost verificados antes de incorporarlos → tabla de verificación en (b).
+5. Tabla 5.1 revisada visualmente antes de modificarla → **no es errata** (d).
+6. Fusionar §4.1.3 y §4.1.8 conservando lo no redundante → (c).
+7. Título actual conservado provisionalmente; en el cuerpo se distingue demanda eléctrica de ventas de CFE SSB (`H26_revision_uso_de_consumo.md`).
 
 ## 5. Pendiente
 
-1. Confirmar que el `.tex` del 15/10 es el vigente (o compartir el último) antes de aplicar los parches.
-2. Decisión del autor: qué hacer con [19] Garcia (n); si se mantiene "modernos" en §5.1.1; si se añaden DOI/páginas a XGBoost tras verificarlos.
-3. Comprobar la Tabla 5.1 (d) sobre la página o el `.tex`.
+1. Confirmar que el `.tex` del 15/10 es el vigente (o compartir el último) antes de aplicar los parches. Ver `PLAN_INTEGRACION_TEX.md`.
+2. Páginas 785–794 de XGBoost en la página de ACM (solo confirmadas en fuentes secundarias).
+3. Si se mantiene "modernos" en §5.1.1 (R13).
+4. Autorizar o no el retiro de [19] (opciones 1–3).
