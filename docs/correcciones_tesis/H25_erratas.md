@@ -157,6 +157,8 @@ Recomendación: **opción 3 si hay una referencia nueva que se quiera conservar;
 6. Fusionar §4.1.3 y §4.1.8 conservando lo no redundante → (c).
 7. Título actual conservado provisionalmente; en el cuerpo se distingue demanda eléctrica de ventas de CFE SSB (`H26_revision_uso_de_consumo.md`).
 
+8. (Segunda ronda, 22/10) [19] Garcia se **conserva temporalmente** y su eliminación se revisa en la integración bibliográfica final. Las páginas 785–794 de XGBoost **se mantienen**, documentando que su respaldo son fuentes secundarias y que falta la confirmación directa en ACM.
+
 ## 5. Pendiente
 
 1. Confirmar que el `.tex` del 15/10 es el vigente (o compartir el último) antes de aplicar los parches. Ver `PLAN_INTEGRACION_TEX.md`.

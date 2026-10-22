@@ -112,6 +112,10 @@ Fuente: `R12_estructura_tesis.md`. Nueva §0.4 "Estructura del documento", **sol
 
 ## 4. Decisiones del autor que siguen abiertas
 
+Resueltas el 22/10 (segunda ronda): se mantiene el `.tex` del 15/10 como referencia provisional sin modificarlo; [19] Garcia se conserva y se revisa en la integración bibliográfica final; las páginas 785–794 de XGBoost se mantienen como "respaldadas por fuentes secundarias, pendientes de confirmación directa en ACM"; la fase de resultados sigue bloqueada hasta completar los experimentos y resolver H24/H27; R7, R19, R23 y R9 se consultan con Roberto. H24: el autor quiere corregirlo; antes se valida con el protocolo `docs/H24_PROTOCOLO_VALIDACION_TUNING_XGBOOST.md`.
+
+Siguen abiertas:
+
 1. Confirmar la versión vigente del `.tex` (puerta de entrada, sección 0).
 2. [19] Garcia: conservar (opción 1), sustituir por una referencia nueva (opción 3) o retirar al final (opción 2).
 3. Mantener o no "modernos" en §5.1.1.
