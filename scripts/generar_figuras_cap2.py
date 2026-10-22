@@ -6,9 +6,9 @@ NO sobrescribe las imagenes originales de la tesis). Uso:
 
 Decisiones de comparabilidad (ver docs/correcciones_tesis/R16_contexto_sistema_electrico.md):
   - Fig 2.2: 2024 se conserva pero se dibuja como periodo PARCIAL (enero-junio), con marcador, linea y nota distintos.
-  - Fig 2.5: generacion y consumo en GWh/ano, promedio 2006-2023 (anos completos en ambas tablas).
+  - Fig 2.5: ventas de CFE Suministro Basico (serie "consumo" del SIE) y generacion en GWh/ano, promedio 2006-2023 (anos completos en ambas tablas).
     Morelos queda fuera de la comparacion (la generacion tiene datos solo desde mar-2017 y 47 meses en cero);
-    Aguascalientes, Tabasco, Tlaxcala y Zacatecas no tienen fila de generacion en la fuente (solo se muestra su consumo).
+    Aguascalientes, Tabasco, Tlaxcala y Zacatecas no tienen fila de generacion en la fuente (solo se muestran sus ventas).
   - Fig 2.1: mismo calculo que la original (promedio anual 2006-2024), con el periodo real y la advertencia de 2024 parcial.
     Incluir 2024 (solo enero-junio) reduce cada promedio entre 1.6 % y 3.2 % respecto de 2006-2023 y solo intercambia
     dos pares de entidades de valores casi iguales (Baja California/Sonora y Chiapas/Guerrero).
@@ -33,6 +33,7 @@ plt.rcParams.update({"figure.facecolor": BG, "axes.facecolor": BG, "savefig.face
                      "axes.labelcolor": FG, "xtick.color": FG, "ytick.color": FG, "axes.edgecolor": "#555555",
                      "font.size": 10})
 FUENTE = "Fuente: Sistema de Información Energética (SIE), Secretaría de Energía."
+NOTA_SIE = "Serie del SIE rotulada \"consumo\"; coincide con las ventas de CFE Suministro Básico de SENER en 2019–2023 (identificación inferida; años previos, no verificados)."
 
 
 def miles(x, _=None):
@@ -79,13 +80,13 @@ ax.set_xlim(2005, 2025)
 ax.set_xticks(range(2006, 2025, 2))
 ax.yaxis.set_major_formatter(plt.FuncFormatter(miles))
 ax.set_xlabel("Año")
-ax.set_ylabel("Consumo de energía eléctrica (GWh)")
+ax.set_ylabel("Ventas de electricidad (GWh)")
 ax.grid(color=GRID, lw=0.6, alpha=0.7)
-ax.set_title("Consumo eléctrico nacional, 2006–2024", fontsize=15, pad=12)
+ax.set_title("Ventas de electricidad de CFE Suministro Básico, total nacional, 2006–2024", fontsize=14, pad=12)
 ax.legend(loc="lower left", facecolor=BG, edgecolor="#555555", labelcolor=FG, fontsize=9)
-fig.text(0.01, 0.01, FUENTE + " Las cifras de 2024 son al mes de junio y no representan una caída anual del consumo.", fontsize=7.5, color="#bbbbbb")
-fig.tight_layout(rect=(0, 0.04, 1, 1))
-fig.savefig(os.path.join(OUT, "Fig2_2_Consumo_anual_nacional.png"), dpi=200)
+fig.text(0.01, 0.01, FUENTE + " Las cifras de 2024 son al mes de junio y no representan una caída anual." + "\n" + NOTA_SIE, fontsize=7.5, color="#bbbbbb")
+fig.tight_layout(rect=(0, 0.07, 1, 1))
+fig.savefig(os.path.join(OUT, "Fig2_2_Ventas_CFE_SSB_nacional.png"), dpi=200)
 plt.close(fig)
 
 # ---------- Figura 2.1 ----------
@@ -94,15 +95,15 @@ fig, ax = plt.subplots(figsize=(10, 9))
 colors = cm.Oranges(np.linspace(0.25, 0.95, len(m)))
 ax.barh(m.index, m.values, color=colors, edgecolor="black", lw=1)
 ax.xaxis.set_major_formatter(plt.FuncFormatter(miles))
-ax.set_xlabel("Consumo anual promedio (GWh/año)")
-ax.set_title("Consumo anual promedio por entidad federativa, 2006–2024", fontsize=15, pad=12)
+ax.set_xlabel("Ventas anuales promedio (GWh/año)")
+ax.set_title("Ventas anuales promedio de electricidad de CFE Suministro Básico" + "\n" + "por entidad federativa, 2006–2024", fontsize=14, pad=12)
 ax.grid(axis="x", color=GRID, lw=0.5, alpha=0.5)
-fig.text(0.01, 0.01, FUENTE + "\nPromedio de 2006–2024; 2024 incluye solo enero–junio, lo que reduce cada promedio entre 1.6 % y 3.2 % respecto de 2006–2023\n"
-         "(en ese periodo solo se intercambian dos pares de entidades de valores casi iguales: Baja California/Sonora y Chiapas/Guerrero).", fontsize=7.5, color="#bbbbbb")
-fig.tight_layout(rect=(0, 0.055, 1, 1))
-fig.savefig(os.path.join(OUT, "Fig2_1_Consumo_promedio_por_entidad.png"), dpi=200)
+fig.text(0.01, 0.01, FUENTE + "\nPromedio de 2006–2024; 2024 incluye solo enero–junio, lo que reduce cada promedio entre 1.6 % y 3.2 % respecto de 2006–2023"
+         + "\n(solo se intercambian dos pares de entidades de valores casi iguales: Baja California/Sonora y Chiapas/Guerrero)." + "\n" + NOTA_SIE, fontsize=7.5, color="#bbbbbb")
+fig.tight_layout(rect=(0, 0.085, 1, 1))
+fig.savefig(os.path.join(OUT, "Fig2_1_Ventas_CFE_SSB_por_entidad.png"), dpi=200)
 plt.close(fig)
-m.rename("consumo_GWh_anual_prom_2006_2024").to_csv(os.path.join(OUT, "datos_fig2_1.csv"), header=True)
+m.rename("ventas_SSB_GWh_anual_prom_2006_2024").to_csv(os.path.join(OUT, "datos_fig2_1.csv"), header=True)
 
 # ---------- Figura 2.4 ----------
 ga = anual(gen_est, 2002, 2024).fillna(0).mean(axis=1) / 1e3  # GWh/ano
@@ -130,35 +131,35 @@ ga.rename("generacion_GWh_anual_prom_2002_2024").to_csv(os.path.join(OUT, "datos
 g_anual = anual(gen_est, 2006, 2023) / 1e3  # GWh/ano
 g_prom = g_anual.mean(axis=1)
 c_prom = cons.loc[:, 2006:2023].mean(axis=1)
-comp = pd.DataFrame({"consumo_GWh": c_prom, "generacion_GWh": g_prom.reindex(c_prom.index)})
+comp = pd.DataFrame({"ventas_SSB_GWh": c_prom, "generacion_GWh": g_prom.reindex(c_prom.index)})
 comp.loc[[e for e in comp.index if e in parcial], "generacion_GWh"] = np.nan  # Morelos fuera de la comparacion
-comp["generacion_entre_consumo"] = comp.generacion_GWh / comp.consumo_GWh
-con_gen = comp.dropna().sort_values("generacion_entre_consumo")
-sin_gen = comp[comp.generacion_GWh.isna()].sort_values("consumo_GWh")
+comp["generacion_entre_ventas"] = comp.generacion_GWh / comp.ventas_SSB_GWh
+con_gen = comp.dropna().sort_values("generacion_entre_ventas")
+sin_gen = comp[comp.generacion_GWh.isna()].sort_values("ventas_SSB_GWh")
 orden = list(sin_gen.index) + list(con_gen.index)
 fig, ax = plt.subplots(figsize=(10.5, 10))
 y = np.arange(len(orden))
-ax.barh(y, comp.loc[orden, "consumo_GWh"], color="#2e86c1", edgecolor="black", lw=0.8, label="Consumo (GWh/año)")
+ax.barh(y, comp.loc[orden, "ventas_SSB_GWh"], color="#2e86c1", edgecolor="black", lw=0.8, label="Ventas de CFE Suministro Básico (GWh/año)")
 ax.scatter(comp.loc[orden, "generacion_GWh"], y, marker="D", s=46, color="#f1c40f", edgecolor="black", zorder=3, label="Generación bruta CFE + PIE (GWh/año)")
 for i, e in enumerate(orden):
-    r = comp.loc[e, "generacion_entre_consumo"]
+    r = comp.loc[e, "generacion_entre_ventas"]
     if not np.isnan(r):
-        ax.text(max(comp.loc[e, "consumo_GWh"], comp.loc[e, "generacion_GWh"]) + 500, i, "×%.2f" % r, va="center", fontsize=8, color="#dddddd")
+        ax.text(max(comp.loc[e, "ventas_SSB_GWh"], comp.loc[e, "generacion_GWh"]) + 500, i, "×%.2f" % r, va="center", fontsize=8, color="#dddddd")
     elif e in parcial:
-        ax.text(comp.loc[e, "consumo_GWh"] + 500, i, "cobertura incompleta", va="center", fontsize=8, color="#ff9f1c")
+        ax.text(comp.loc[e, "ventas_SSB_GWh"] + 500, i, "cobertura incompleta", va="center", fontsize=8, color="#ff9f1c")
     else:
-        ax.text(comp.loc[e, "consumo_GWh"] + 500, i, "sin registro de generación", va="center", fontsize=8, color="#ff9f1c")
+        ax.text(comp.loc[e, "ventas_SSB_GWh"] + 500, i, "sin registro de generación", va="center", fontsize=8, color="#ff9f1c")
 ax.set_yticks(y)
 ax.set_yticklabels(orden, fontsize=8.5)
 ax.xaxis.set_major_formatter(plt.FuncFormatter(miles))
 ax.set_xlabel("GWh por año (promedio 2006–2023)")
-ax.set_title("Consumo y generación eléctrica promedio por entidad federativa, 2006–2023", fontsize=14, pad=12)
+ax.set_title("Ventas de CFE Suministro Básico y generación bruta (CFE + PIE) por entidad federativa, 2006–2023", fontsize=12.5, pad=12)
 ax.grid(axis="x", color=GRID, lw=0.5, alpha=0.5)
 ax.legend(loc="lower right", facecolor=BG, edgecolor="#555555", labelcolor=FG, fontsize=9)
-fig.text(0.01, 0.01, FUENTE + " Ordenado por generación / consumo (×). La generación no es un balance físico del consumo: cubre solo CFE y PIE.", fontsize=7.5, color="#bbbbbb")
-fig.tight_layout(rect=(0, 0.03, 1, 1))
-fig.savefig(os.path.join(OUT, "Fig2_5_Consumo_vs_Generacion.png"), dpi=200)
+fig.text(0.01, 0.01, FUENTE + " Ordenado por generación / ventas (×). No es un balance físico: la generación cubre solo CFE y PIE." + "\n" + NOTA_SIE, fontsize=7.5, color="#bbbbbb")
+fig.tight_layout(rect=(0, 0.045, 1, 1))
+fig.savefig(os.path.join(OUT, "Fig2_5_Ventas_SSB_vs_Generacion.png"), dpi=200)
 plt.close(fig)
 comp.loc[orden].round(3).to_csv(os.path.join(OUT, "datos_fig2_5.csv"))
-total.rename("consumo_total_GWh").to_csv(os.path.join(OUT, "datos_fig2_2.csv"), header=True)
+total.rename("ventas_SSB_total_GWh").to_csv(os.path.join(OUT, "datos_fig2_2.csv"), header=True)
 print("figuras escritas en", OUT, "| estados comparables:", len(con_gen), "| sin generacion:", list(sin_gen.index))
