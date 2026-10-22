@@ -81,3 +81,24 @@ Sin cambios de esquema: el CSV de intentos conserva sus columnas (el detalle va 
 **Dónde ver el error de una corrida:** `Pipeline_Resultados_Ventanas/<S#>/<RUN_NAME>/log.txt` → `!grep -n -A25 "@@ERROR_REGION@@" "<ruta>/log.txt" | head -80`. Las ejecuciones se identifican por la línea `Experimento: <RUN_NAME>`; el orquestador solo cuenta los errores de la ejecución actual.
 
 Pruebas: `tests/test_errores_log.py` (marca y traza, los 4 modelos, runner fallido/completado, rc=3, GPU/RAM tragados, abandono determinista, falla real del subproceso) y regresión de `test_ejecucion_aislada.py` (reanudación real con el modelo naive), `test_checkpoint.py`, `test_notebook_ventanas.py`, etc.
+
+## Actualización 2026-10-22: causa raíz de Ensemble STL (statsmodels 0.15.0) y corrección
+
+**Causa (confirmada en Colab):** Colab pasó a **statsmodels 0.15.0**, cuyo `AutoReg` ya no acepta el argumento `old_names` (`TypeError: AutoReg.__init__() got an unexpected keyword argument 'old_names'`). `seleccionar_ar_por_aic` llamaba a `AutoReg(..., old_names=False)` y atrapaba la excepción de **cada uno de los 168 candidatos**, de modo que ninguno resultaba válido y cada región terminaba con `RuntimeError: No se pudo ajustar ningun AR valido.`, siempre después de entrenar y predecir con la LSTM y la FCNN. Sin ese argumento el ajuste funciona (en Colab, AIC = 10212.775 con una serie sintética; reproducido localmente con la versión 0.15.0 real: mismo valor).
+
+**Corrección mínima (`ensemble_stl.py`):**
+1. Se elimina `old_names=False` de la llamada. En statsmodels 0.13 a 0.14 su valor por defecto ya es `False`, así que el ajuste es el mismo.
+2. Si todos los candidatos fallan, el `RuntimeError` conserva su texto y añade la causa: longitud del residuo, excepciones con su tipo y conteo (p. ej. `TypeError: ... 'old_names' x168`) y candidatos con AIC no finito. La selección no cambia.
+
+**Equivalencia verificada (datos reales de S4, función corregida):** CEN, NES y PEN con statsmodels 0.14.5 y 0.15.0 reales dan resultados **idénticos bit a bit** en STL (tendencia, estacionalidad, residuo), rezago elegido (168), AIC de los 168 candidatos, parámetros y predicción a 168 h. También idénticos al código anterior (con `old_names=False`) en 0.14.5. Prueba: `tests/test_ensemble_ar_compat.py` (el punto 5 usa `SM015_PATH`, una carpeta con statsmodels 0.15.0 instalada aparte con `pip install --no-deps --target`).
+
+**Reutilización de lo ya hecho (sin repetir la optimización neuronal):** las 16 bases Optuna de cada corrida (`<REGION>_DEMANDA_LSTM_trend_EXOG_ALL_optuna.db` y `..._FCNN_seasonal_EXOG_ALL_optuna.db`) traen 5 intentos completos; al reanudar el módulo lee "completos: 5, restantes: 0" y devuelve parámetros y `trials` desde la base sin entrenar ni agregar intentos. Los CSV vacíos (5 bytes) que dejó la corrida fallida se tratan como ausentes (checkpoint y `validar_resultado`; verificado). Sí se repite, por región, el **entrenamiento final** de la LSTM y de la FCNN. Los pesos finales pueden diferir ligeramente de una corrida ininterrumpida porque, al saltarse la optimización, cambia el estado del generador aleatorio; es la limitación habitual de toda reanudación y conviene declararla.
+
+**Otros usos de `old_names=False` (documentados, NO modificados):**
+
+| Archivo | Línea | Dónde corre | Efecto con statsmodels ≥ 0.15 |
+|---|---|---|---|
+| `models/ar_model.py` | 76 | PC (modelo `ar`) | Fallaría igual que Ensemble STL |
+| `models/ar_resid_trend_seasonal_model.py` | 168 | PC (modelo `ar_resid_trend_seasonal`) | Fallaría igual |
+
+Hoy no hay problema: la PC usa statsmodels 0.14.5 y esas 8 corridas locales (T1) ya están completas. Mientras corre la cola local no se tocan estos modelos. Si alguien actualiza statsmodels en la PC, hay que aplicar la misma corrección (quitar el argumento; equivalencia ya verificada en 0.14.5). `sarimax_model.py` no usa `AutoReg`.

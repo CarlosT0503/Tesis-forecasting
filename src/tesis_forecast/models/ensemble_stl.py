@@ -666,7 +666,9 @@ def seleccionar_ar_por_aic(y, max_lag=168):
 
     for lag in range(1, max_lag + 1):
         try:
-            model = AutoReg(y, lags=lag, trend="c", old_names=False)
+            # Sin `old_names`: en statsmodels >= 0.15 ese argumento ya no existe (TypeError en TODOS los candidatos), y en las
+            # versiones que lo aceptan su valor por defecto ya es False, por lo que el ajuste es identico.
+            model = AutoReg(y, lags=lag, trend="c")
             fitted = model.fit()
 
             resultados.append({"lag": lag, "AIC": fitted.aic, "BIC": fitted.bic})
@@ -677,12 +679,26 @@ def seleccionar_ar_por_aic(y, max_lag=168):
                 mejor_modelo = fitted
 
         except Exception as e:
-            resultados.append({"lag": lag, "AIC": np.nan, "BIC": np.nan, "error": str(e)[:150]})
+            resultados.append({"lag": lag, "AIC": np.nan, "BIC": np.nan, "error": f"{type(e).__name__}: {str(e)[:140]}"})
 
     if mejor_modelo is None:
-        raise RuntimeError("No se pudo ajustar ningun AR valido.")
+        raise RuntimeError(_explicar_fallo_ar(resultados, len(y), max_lag))
 
     return mejor_modelo, mejor_lag, pd.DataFrame(resultados)
+
+
+def _explicar_fallo_ar(resultados, n_obs, max_lag):
+    """Mensaje con la CAUSA cuando ningun candidato AR resulta valido (antes solo decia que ninguno lo era)."""
+    df = pd.DataFrame(resultados)
+    errores = df["error"].dropna() if "error" in df.columns else pd.Series(dtype=str)
+    no_finitos = int(((df["error"].isna() if "error" in df.columns else True) & ~np.isfinite(df["AIC"])).sum()) if len(df) else 0
+    partes = [f"No se pudo ajustar ningun AR valido (residuo con {n_obs} observaciones, {len(df)} de {max_lag} candidatos evaluados)."]
+    if len(errores):
+        partes.append(f"{len(errores)} candidato(s) lanzaron excepcion; causas (conteo): " + "; ".join(
+            f"{k} x{v}" for k, v in errores.value_counts().head(3).items()))
+    if no_finitos:
+        partes.append(f"{no_finitos} candidato(s) dieron AIC no finito (residuo constante o con valores no finitos).")
+    return " ".join(partes)
 
 
 def forecast_ar_resid(resid, horizon):
