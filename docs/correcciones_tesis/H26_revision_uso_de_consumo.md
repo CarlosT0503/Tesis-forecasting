@@ -38,7 +38,29 @@ La confusión está **confinada al Capítulo 2** (texto y títulos de las Figura
 - **Figura 2.3 (generación anual) y 2.4 (generación por entidad):** son generación bruta de CFE + PIE; no cambian de denominación.
 - **Lectura correcta del conjunto:** las cinco figuras son contexto descriptivo; no sustentan ninguna conclusión de la tesis.
 
-## 5. Lo que queda por decidir
+## 5. Decisiones del autor (22/10) y puntos de aplicación
 
-1. Si el título de la tesis ("…Consumo Eléctrico") se mantiene o se ajusta a "demanda" (solo el autor puede decidirlo).
-2. Si, además de renombrar las figuras, se conserva la palabra "consumo" en el texto corrido del Capítulo 2 con la aclaración (R16 usa "ventas" y explica la equivalencia una vez).
+**Terminología aprobada:**
+1. **Objetivo y variable pronosticada: «demanda eléctrica».** Es lo que ya dicen la Introducción y los Caps. 5–7; no requiere cambios.
+2. **Figuras basadas en el SIE: «ventas de electricidad de CFE Suministro Básico»**, aclarando en el texto y en el pie que **no representan el consumo final total del SEN** (nota ya incluida en las figuras regeneradas y en R16 §2.4).
+3. **El título de la tesis no se cambia** hasta revisar su formulación exacta (abajo).
+
+**Formulación exacta del título** (`tesis.tex`, versión del 15/10, línea 34): `\title{Series de Tiempo para la predicción de Consumo Eléctrico}`; el nombre del PDF repite "Predicción de Consumo Eléctrico". El texto de la tesis usa "demanda eléctrica" para lo que se pronostica (Introducción: líneas 71, 118, 129, 171, 178 del `.tex`). Hay una incongruencia entre el título ("consumo") y la variable ("demanda"), pero **no se modifica**: es una decisión del autor/asesores, que puede implicar trámites (portada, registro, resúmenes, pósteres, protocolo). Si se decidiera cambiarlo, la forma mínima sería «…Predicción de **Demanda** Eléctrica», pero no se propone aplicarla.
+
+**Puntos del `.tex` (15/10) que cambian con la decisión 2** (no aplicados; `tesis.tex` no se edita):
+
+| Línea | Hoy | Cambio propuesto |
+|---|---|---|
+| 575 | `\caption{Consumo eléctrico promedio por entidad federativa}` | Ventas anuales promedio de electricidad de CFE Suministro Básico por entidad federativa |
+| 579 | "La Figura … muestra el consumo eléctrico anual total en México. Se observa una disminución…" | R16 §2.4 (ventas de CFE SSB; 2024 parcial; no es una caída) |
+| 584 | `\caption{Consumo eléctrico total en México}` | Ventas de electricidad de CFE Suministro Básico, total nacional |
+| 604 | "…diferencias amplias entre generación y consumo promedio, como Veracruz y Jalisco…" | R16 §2.4 (ventas; ejemplos corregidos, H21) |
+| 609 | `\caption{Consumo vs. generación eléctrica promedio}` | Ventas de CFE Suministro Básico y generación bruta (CFE + PIE) por entidad federativa |
+| 574, 583, 608 | Archivos `img/Consumo Promedio.png`, `img/Consumo Anual.png`, `img/Consumo vs Generacion.png` | Sustituir por los PNG regenerados en `figuras_cap2/` (`Fig2_1_Ventas_CFE_SSB_por_entidad.png`, `Fig2_2_Ventas_CFE_SSB_nacional.png`, `Fig2_5_Ventas_SSB_vs_Generacion.png`); actualizar los `\includegraphics` |
+
+El resto de las 18 apariciones de "consumo" en el `.tex` son usos legítimos (ver sección 2).
+
+## 6. Lo que sigue abierto
+
+1. Si, además de renombrar las figuras, se conserva la palabra "consumo" en el texto corrido del Cap. 2: R16 usa "ventas" y explica la equivalencia una vez; con las decisiones 1 y 2 esto es coherente.
+2. El título (decisión 3).

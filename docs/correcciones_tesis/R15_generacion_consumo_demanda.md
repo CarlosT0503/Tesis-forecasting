@@ -52,7 +52,7 @@ Totales anuales 2023 de las ocho regiones del estudio (suma de las series proces
 - "Consumo final" no es una definición de CENACE: se toma de SENER [30].
 - En los reportes de 2019 la identidad se cumple **sin** el término *N* y con importaciones/exportaciones nulas en varias regiones del SIN, es decir, la columna `Generacion` de 2019 no es comparable con la de 2020 en adelante para las regiones del SIN. No afecta a los experimentos (usan 2025–2026) pero sí a cualquier análisis de 2019.
 - [30] se firmó el 14 de octubre de 2025; su fecha exacta de publicación en el DOF no aparece en el texto consultado (verificar).
-- Pendiente de decidir: unificar "consumo" (título y Cap. 2) con "demanda" (variable pronosticada).
+- Terminología decidida por el autor (22/10): "demanda eléctrica" para el objetivo y la variable pronosticada; "ventas de electricidad de CFE Suministro Básico" para la serie del SIE, aclarando que no es el consumo final total del SEN. El título de la tesis no se cambia sin revisar su formulación exacta (ver `H26_revision_uso_de_consumo.md`, sección 5).
 
 ## Referencias
 
@@ -65,7 +65,7 @@ Se revisaron los usos de "generación", "consumo" y "demanda" en R14, R15 y R16.
 
 | # | Hallazgo | Acción |
 |---|---|---|
-| 1 | **Término de la variable pronosticada.** El título dice "Consumo Eléctrico"; la Introducción (§0.3.1) dice "demanda eléctrica" y R14/R15 usan "demanda real (por balance)". El Cap. 2 usa "consumo" para la serie anual del SIE por entidad. Son tres magnitudes distintas con dos palabras. | Mantener "demanda" para la serie horaria pronosticada y "consumo" solo para la serie anual del SIE. Decidir con el autor si el título se ajusta; **no tocado**. |
+| 1 | **Término de la variable pronosticada.** El título dice "Consumo Eléctrico"; la Introducción (§0.3.1) dice "demanda eléctrica" y R14/R15 usan "demanda real (por balance)". El Cap. 2 usa "consumo" para la serie anual del SIE por entidad. Son tres magnitudes distintas con dos palabras. | Mantener "demanda" para la serie horaria pronosticada y "consumo" solo para la serie anual del SIE. **Decidido el 22/10:** terminología aprobada (demanda para la variable pronosticada; ventas de CFE SSB para el SIE); el título **no se toca** hasta revisar su formulación exacta. |
 | 2 | **Cobertura del "consumo" del SIE.** Resuelto en H26 (2026-10-21): la tabla del SIE coincide con las ventas de CFE Suministro Básico (222.9 TWh en 2023), no con el consumo final del SEN (≈ 298.6 TWh), que incluye suministro calificado, contratos legados y centros de carga remotos. | No equiparar ambas magnitudes; usar el texto propuesto en `H26_discrepancia_SIE_SENER.md` §3 y las referencias [33] y [34]. |
 | 3 | **BCS y Mulegé.** R15 decía "el estudio excluye Baja California Sur y Mulegé" (sugería una exclusión técnica). | Reformulado como delimitación del alcance (H16). |
 | 4 | **Comparación demanda de las ocho regiones vs consumo final nacional.** La cifra 348.5 TWh (demanda 2024, ocho regiones) frente a 304.0 TWh (consumo final, SEN) se explica en parte por pérdidas (12.3 %), pero el cálculo no cierra exactamente; el texto ya dice "no son idénticas". | Sin cambio; no afirmar que concilian. |

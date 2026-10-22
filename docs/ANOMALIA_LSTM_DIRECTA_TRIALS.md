@@ -1,6 +1,6 @@
 # Anomalía de LSTM directa: regiones con 20 intentos de Optuna frente a un presupuesto de 10
 
-Fecha: 2026-10-22. Estado: **análisis documental; no se ha borrado, modificado ni repetido nada.** Solo se añadió una herramienta de auditoría de solo lectura (`scripts/auditar_trials_lstm_directa.py`, con su prueba), pendiente de que el autor autorice publicarla.
+Fecha: 2026-10-22. Estado: **análisis documental; no se ha borrado, modificado ni repetido nada.** La herramienta de auditoría de solo lectura (`scripts/auditar_trials_lstm_directa.py`, con su prueba) se publicó en el commit `9863248`, con autorización del autor. **La auditoría todavía no se ha ejecutado**: las bases `optuna_lstm_directa.db` viven en el Drive de Colab y no hay ninguna copia local (búsqueda en el repositorio, Descargas y Documentos: ninguna). Hasta que el autor la ejecute, no se sabe cuántas regiones tienen más de 10 intentos ni si el exceso cambió la selección.
 
 ## 1. Qué se observó
 
@@ -63,6 +63,6 @@ Si la auditoría muestra que en ninguna celda el exceso cambió la selección, b
 
 ## 7. Pendiente
 
-1. Que el autor autorice publicar el script de auditoría (commit aparte, solo lectura) y ejecute la celda; con su salida se completan N y M.
+1. Que el autor ejecute la celda de la sección 4 (tras `git pull` en Colab, o pegando el script) y comparta la salida o el CSV `_auditoria/trials_lstm_directa.csv`; con ella se completan N y M.
 2. Decidir T0/T1/T2 con la lista real.
 3. Verificar si otras redes (FCNN, LSTM residual, Ensemble STL) pudieron tener el mismo efecto: **no**, según el código, porque sus funciones `tunear_*` ya calculaban `remaining = n_trials − completos` antes de esta corrección. Lo que sí hacen al reanudar es repetir el entrenamiento final de la región (no la búsqueda), con un estado aleatorio distinto al de una corrida ininterrumpida; eso no modifica hiperparámetros.
